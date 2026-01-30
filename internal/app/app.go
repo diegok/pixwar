@@ -179,6 +179,8 @@ func (a *App) mainLoop() error {
 			a.inLobby = false
 			a.inGame = true
 			a.gameOver = false
+			a.inRematch = false
+			a.inCountdown = false
 			a.spectating = false
 			a.render()
 
