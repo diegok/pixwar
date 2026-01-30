@@ -113,7 +113,7 @@ func (r *Renderer) RenderGame(state protocol.GameState, myID int) {
 	_, screenH := r.screen.Size()
 
 	// Render the board
-	r.renderBoard(state)
+	r.renderBoard(state, myID)
 
 	// Render status bar at the bottom
 	r.renderStatusBar(state, myID, screenH)
@@ -122,7 +122,8 @@ func (r *Renderer) RenderGame(state protocol.GameState, myID int) {
 }
 
 // renderBoard draws the game board with all players
-func (r *Renderer) renderBoard(state protocol.GameState) {
+// myID is used to highlight the player's own head (-1 to disable highlighting)
+func (r *Renderer) renderBoard(state protocol.GameState, myID int) {
 	emptyStyle := tcell.StyleDefault.Background(tcell.ColorDarkGray)
 
 	// Draw empty board
@@ -181,12 +182,25 @@ func (r *Renderer) renderBoard(state protocol.GameState) {
 		if !p.Alive {
 			continue
 		}
-		// Use colored background with white foreground so player is always visible
-		style := GetPlayerBgStyle(p.Color).Foreground(tcell.ColorWhite).Bold(true)
+
+		isMe := p.ID == myID
+		var style tcell.Style
+		var char rune
+
+		if isMe {
+			// Own player: bright white background with player-colored text, distinctive character
+			style = tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(GetPlayerColor(p.Color)).Bold(true)
+			char = '█' // Solid block for own player
+		} else {
+			// Other players: colored background with white foreground
+			style = GetPlayerBgStyle(p.Color).Foreground(tcell.ColorWhite).Bold(true)
+			char = '▓' // Slightly different block for others
+		}
+
 		if p.Protected {
 			style = style.Blink(true)
 		}
-		char := '▓' // Use a slightly different block character to stand out
+
 		if p.Position.X >= 0 && p.Position.X < state.BoardWidth &&
 			p.Position.Y >= 0 && p.Position.Y < state.BoardHeight {
 			r.screen.SetCell(p.Position.X, p.Position.Y, style, char)
@@ -298,8 +312,8 @@ func (r *Renderer) RenderSpectator(state protocol.GameState, watchingID, myRank,
 	r.screen.Clear()
 	screenW, screenH := r.screen.Size()
 
-	// Render the board
-	r.renderBoard(state)
+	// Render the board (highlight watched player)
+	r.renderBoard(state, watchingID)
 
 	// Show death message at top of screen
 	if deathReason != "" {

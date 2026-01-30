@@ -148,9 +148,10 @@ func TestRenderGame(t *testing.T) {
 	renderer.RenderGame(state, 1)
 
 	// Check that player head is drawn at position (10, 5)
+	// Own player uses '█' (solid block), other players use '▓'
 	r, _, _, _ := sim.GetContent(10, 5)
-	if r != '▓' {
-		t.Errorf("Player head at (10,5) = %c, want ▓", r)
+	if r != '█' {
+		t.Errorf("Player head at (10,5) = %c, want █", r)
 	}
 
 	// Check trail dots

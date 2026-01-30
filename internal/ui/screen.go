@@ -137,3 +137,11 @@ func GetPlayerBgStyle(colorIndex int) tcell.Style {
 	}
 	return tcell.StyleDefault.Background(PlayerColors[colorIndex])
 }
+
+// GetPlayerColor returns the tcell.Color for a player color index
+func GetPlayerColor(colorIndex int) tcell.Color {
+	if colorIndex < 0 || colorIndex >= len(PlayerColors) {
+		return tcell.ColorWhite
+	}
+	return PlayerColors[colorIndex]
+}
