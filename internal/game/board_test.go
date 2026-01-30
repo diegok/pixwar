@@ -316,3 +316,252 @@ func TestTotalCells(t *testing.T) {
 		}
 	})
 }
+
+func TestCaptureTerritory(t *testing.T) {
+	t.Run("simple capture fills interior", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		// Create a rectangular trail that encloses a 2x2 interior
+		// Trail forms a rectangle: (2,2) -> (5,2) -> (5,5) -> (2,5) -> back to (2,2)
+		trail := []Point{
+			{2, 2}, {3, 2}, {4, 2}, {5, 2}, // top edge
+			{5, 3}, {5, 4}, {5, 5}, // right edge
+			{4, 5}, {3, 5}, {2, 5}, // bottom edge
+			{2, 4}, {2, 3}, // left edge back to near start
+		}
+
+		captured := b.CaptureTerritory(1, trail)
+
+		// All trail cells should be territory now
+		for _, pt := range trail {
+			cell := b.GetCell(pt.X, pt.Y)
+			if cell.Owner != 1 {
+				t.Errorf("trail cell (%d, %d) should be owned by player 1, got owner %d", pt.X, pt.Y, cell.Owner)
+			}
+			if cell.IsTrail {
+				t.Errorf("trail cell (%d, %d) should be converted to territory, still marked as trail", pt.X, pt.Y)
+			}
+		}
+
+		// Interior cells should be captured (3,3), (4,3), (3,4), (4,4)
+		interiorCells := []Point{{3, 3}, {4, 3}, {3, 4}, {4, 4}}
+		for _, pt := range interiorCells {
+			cell := b.GetCell(pt.X, pt.Y)
+			if cell.Owner != 1 {
+				t.Errorf("interior cell (%d, %d) should be owned by player 1, got owner %d", pt.X, pt.Y, cell.Owner)
+			}
+		}
+
+		// Captured count should include trail (12) + interior (4) = 16
+		expectedCapture := len(trail) + len(interiorCells)
+		if captured != expectedCapture {
+			t.Errorf("expected %d captured cells, got %d", expectedCapture, captured)
+		}
+	})
+
+	t.Run("capture selects smaller side when dividing board", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		// Create a vertical trail that divides the board
+		// Trail at x=3 from top to bottom (divides into left side 3 cols, right side 6 cols)
+		trail := []Point{
+			{3, 0}, {3, 1}, {3, 2}, {3, 3}, {3, 4},
+			{3, 5}, {3, 6}, {3, 7}, {3, 8}, {3, 9},
+		}
+
+		captured := b.CaptureTerritory(1, trail)
+
+		// The smaller region is the left side (columns 0-2, 3 columns * 10 rows = 30 cells)
+		// Trail cells = 10
+		// Total should be 10 (trail) + 30 (smaller region) = 40
+
+		// Check that left side is captured (smaller region)
+		for y := 0; y < 10; y++ {
+			for x := 0; x < 3; x++ {
+				cell := b.GetCell(x, y)
+				if cell.Owner != 1 {
+					t.Errorf("left side cell (%d, %d) should be owned by player 1, got owner %d", x, y, cell.Owner)
+				}
+			}
+		}
+
+		// Check that right side is NOT captured (larger region)
+		for y := 0; y < 10; y++ {
+			for x := 4; x < 10; x++ {
+				cell := b.GetCell(x, y)
+				if cell.Owner == 1 {
+					t.Errorf("right side cell (%d, %d) should NOT be owned by player 1", x, y)
+				}
+			}
+		}
+
+		// Trail (10) + left side (30) = 40
+		if captured != 40 {
+			t.Errorf("expected 40 captured cells, got %d", captured)
+		}
+	})
+
+	t.Run("trail cells converted to territory", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		// Small L-shaped trail
+		trail := []Point{
+			{2, 2}, {3, 2}, {4, 2},
+			{4, 3}, {4, 4},
+		}
+
+		b.CaptureTerritory(1, trail)
+
+		// All trail cells should now be territory (not trail)
+		for _, pt := range trail {
+			cell := b.GetCell(pt.X, pt.Y)
+			if cell.Owner != 1 {
+				t.Errorf("trail cell (%d, %d) should be owned by player 1", pt.X, pt.Y)
+			}
+			if cell.IsTrail {
+				t.Errorf("trail cell (%d, %d) should not be marked as trail after capture", pt.X, pt.Y)
+			}
+		}
+	})
+}
+
+func TestGetPlayerTerritory(t *testing.T) {
+	t.Run("returns empty slice for player with no territory", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		territory := b.GetPlayerTerritory(1)
+
+		if len(territory) != 0 {
+			t.Errorf("expected empty territory, got %d cells", len(territory))
+		}
+	})
+
+	t.Run("returns all territory cells for player", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		// Set some territory
+		b.SetTerritory(1, 1, 1)
+		b.SetTerritory(2, 1, 1)
+		b.SetTerritory(3, 1, 1)
+		b.SetTrail(4, 1, 1) // Trail should not be included
+
+		territory := b.GetPlayerTerritory(1)
+
+		if len(territory) != 3 {
+			t.Errorf("expected 3 territory cells, got %d", len(territory))
+		}
+
+		// Verify the cells are correct
+		expectedCells := map[Point]bool{
+			{1, 1}: true, {2, 1}: true, {3, 1}: true,
+		}
+		for _, pt := range territory {
+			if !expectedCells[pt] {
+				t.Errorf("unexpected territory cell (%d, %d)", pt.X, pt.Y)
+			}
+		}
+	})
+
+	t.Run("does not include other player territory", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		b.SetTerritory(1, 1, 1)
+		b.SetTerritory(2, 1, 2) // Different player
+
+		territory := b.GetPlayerTerritory(1)
+
+		if len(territory) != 1 {
+			t.Errorf("expected 1 territory cell, got %d", len(territory))
+		}
+	})
+}
+
+func TestClearPlayerTrails(t *testing.T) {
+	t.Run("clears all trails for specified player", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		b.SetTrail(1, 1, 1)
+		b.SetTrail(2, 1, 1)
+		b.SetTrail(3, 1, 1)
+		b.SetTrail(4, 1, 2) // Different player
+
+		b.ClearPlayerTrails(1)
+
+		// Player 1 trails should be cleared
+		for x := 1; x <= 3; x++ {
+			cell := b.GetCell(x, 1)
+			if cell.Owner == 1 || cell.IsTrail {
+				t.Errorf("cell (%d, 1) should be cleared, got owner=%d, isTrail=%v", x, cell.Owner, cell.IsTrail)
+			}
+		}
+
+		// Player 2 trail should remain
+		cell := b.GetCell(4, 1)
+		if cell.Owner != 2 || !cell.IsTrail {
+			t.Errorf("player 2 trail should remain, got owner=%d, isTrail=%v", cell.Owner, cell.IsTrail)
+		}
+	})
+
+	t.Run("does not affect territory", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		b.SetTerritory(1, 1, 1)
+		b.SetTrail(2, 1, 1)
+
+		b.ClearPlayerTrails(1)
+
+		// Territory should remain
+		cell := b.GetCell(1, 1)
+		if cell.Owner != 1 {
+			t.Errorf("territory should remain, got owner=%d", cell.Owner)
+		}
+
+		// Trail should be cleared
+		cell = b.GetCell(2, 1)
+		if cell.Owner == 1 {
+			t.Errorf("trail should be cleared, got owner=%d", cell.Owner)
+		}
+	})
+}
+
+func TestClearPlayerTerritory(t *testing.T) {
+	t.Run("clears all territory for specified player", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		b.SetTerritory(1, 1, 1)
+		b.SetTerritory(2, 1, 1)
+		b.SetTerritory(3, 1, 2) // Different player
+
+		b.ClearPlayerTerritory(1)
+
+		// Player 1 territory should be cleared
+		for x := 1; x <= 2; x++ {
+			cell := b.GetCell(x, 1)
+			if cell.Owner == 1 {
+				t.Errorf("cell (%d, 1) should be cleared, got owner=%d", x, cell.Owner)
+			}
+		}
+
+		// Player 2 territory should remain
+		cell := b.GetCell(3, 1)
+		if cell.Owner != 2 {
+			t.Errorf("player 2 territory should remain, got owner=%d", cell.Owner)
+		}
+	})
+
+	t.Run("also clears trails", func(t *testing.T) {
+		b := NewBoard(10, 10)
+
+		b.SetTerritory(1, 1, 1)
+		b.SetTrail(2, 1, 1)
+
+		b.ClearPlayerTerritory(1)
+
+		// Both should be cleared
+		cell1 := b.GetCell(1, 1)
+		cell2 := b.GetCell(2, 1)
+		if cell1.Owner == 1 || cell2.Owner == 1 {
+			t.Error("both territory and trails should be cleared")
+		}
+	})
+}
