@@ -152,15 +152,9 @@ func (b *Board) CaptureTerritory(playerID int, trail []Point) int {
 		}
 	}
 
-	// Also mark existing player territory as visited
-	for y := 0; y < b.Height; y++ {
-		for x := 0; x < b.Width; x++ {
-			cell := b.GetCell(x, y)
-			if cell.Owner == playerID && !trailSet[Point{x, y}] {
-				visited[y][x] = true
-			}
-		}
-	}
+	// NOTE: We intentionally do NOT mark existing territory as boundary.
+	// This allows players to expand their territory by drawing trails
+	// that divide unclaimed areas, even after they already have territory.
 
 	// Find all regions in the interior (non-edge cells)
 	var regions [][]Point
