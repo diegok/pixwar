@@ -153,16 +153,17 @@ func (r *Renderer) renderBoard(state protocol.GameState) {
 		}
 	}
 
-	// Draw player heads
+	// Draw player heads - use player color as background with white foreground for visibility
 	for _, p := range state.Players {
 		if !p.Alive {
 			continue
 		}
-		style := GetPlayerStyle(p.Color).Bold(true)
+		// Use colored background with white foreground so player is always visible
+		style := GetPlayerBgStyle(p.Color).Foreground(tcell.ColorWhite).Bold(true)
 		if p.Protected {
 			style = style.Blink(true)
 		}
-		char := '█'
+		char := '▓' // Use a slightly different block character to stand out
 		if p.Position.X >= 0 && p.Position.X < state.BoardWidth &&
 			p.Position.Y >= 0 && p.Position.Y < state.BoardHeight {
 			r.screen.SetCell(p.Position.X, p.Position.Y, style, char)
