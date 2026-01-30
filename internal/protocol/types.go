@@ -59,16 +59,17 @@ type Position struct {
 
 // PlayerState represents a single player's state
 type PlayerState struct {
-	ID        int
-	Name      string
-	Color     int
-	Position  Position
-	Direction Direction
-	Trail     []Position
-	Territory []Position
-	Score     int
-	Alive     bool
-	Protected bool // spawn protection
+	ID          int
+	Name        string
+	Color       int
+	Position    Position
+	Direction   Direction
+	Trail       []Position
+	Territory   []Position
+	Score       int
+	Alive       bool
+	Protected   bool   // spawn protection
+	DeathReason string // why the player died (empty if alive)
 }
 
 // GameState broadcast by server each tick

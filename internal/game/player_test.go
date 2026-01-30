@@ -229,7 +229,7 @@ func TestEliminate(t *testing.T) {
 	t.Run("sets Alive to false", func(t *testing.T) {
 		p := NewPlayer(1, "Alice", 2)
 
-		p.Eliminate()
+		p.Eliminate("test")
 
 		if p.Alive {
 			t.Error("expected Alive false after elimination, got true")
@@ -239,8 +239,8 @@ func TestEliminate(t *testing.T) {
 	t.Run("multiple eliminations are safe", func(t *testing.T) {
 		p := NewPlayer(1, "Alice", 2)
 
-		p.Eliminate()
-		p.Eliminate()
+		p.Eliminate("test")
+		p.Eliminate("test")
 
 		if p.Alive {
 			t.Error("expected Alive false after multiple eliminations")

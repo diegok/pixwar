@@ -25,16 +25,17 @@ type App struct {
 	server   *server.Server
 
 	// State
-	inLobby    bool
-	inGame     bool
-	gameOver   bool
-	spectating bool
-	lobbyState protocol.LobbyState
-	gameState  protocol.GameState
-	overState  protocol.GameOverState
-	myRank     int
-	myScore    int
-	watchingID int
+	inLobby     bool
+	inGame      bool
+	gameOver    bool
+	spectating  bool
+	lobbyState  protocol.LobbyState
+	gameState   protocol.GameState
+	overState   protocol.GameOverState
+	myRank      int
+	myScore     int
+	watchingID  int
+	deathReason string
 
 	// Control channels
 	quit    chan struct{}
@@ -289,6 +290,7 @@ func (a *App) checkElimination() {
 			if !p.Alive {
 				a.spectating = true
 				a.myScore = p.Score
+				a.deathReason = p.DeathReason
 
 				// Calculate rank based on alive players
 				aliveCount := 0
@@ -332,7 +334,7 @@ func (a *App) render() {
 		a.renderer.RenderGameOver(a.overState)
 	} else if a.inGame {
 		if a.spectating {
-			a.renderer.RenderSpectator(a.gameState, a.watchingID, a.myRank, a.myScore)
+			a.renderer.RenderSpectator(a.gameState, a.watchingID, a.myRank, a.myScore, a.deathReason)
 		} else {
 			a.renderer.RenderGame(a.gameState, a.client.PlayerID)
 		}

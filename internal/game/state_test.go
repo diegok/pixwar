@@ -258,7 +258,7 @@ func TestProcessInput(t *testing.T) {
 
 		p := gs.AddPlayer(1, "Alice")
 		p.Direction = protocol.DirRight
-		p.Eliminate()
+		p.Eliminate("test")
 
 		gs.ProcessInput(p.ID, protocol.DirUp)
 
@@ -332,7 +332,7 @@ func TestTick(t *testing.T) {
 		p := gs.AddPlayer(1, "Alice")
 		p.SetPosition(50, 25)
 		p.Direction = protocol.DirRight
-		p.Eliminate()
+		p.Eliminate("test")
 
 		gs.Tick()
 
@@ -354,7 +354,7 @@ func TestAliveCount(t *testing.T) {
 			t.Errorf("expected 3 alive, got %d", gs.AliveCount())
 		}
 
-		gs.Players[1].Eliminate()
+		gs.Players[1].Eliminate("test")
 
 		if gs.AliveCount() != 2 {
 			t.Errorf("expected 2 alive, got %d", gs.AliveCount())

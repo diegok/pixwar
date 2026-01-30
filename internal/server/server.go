@@ -412,13 +412,16 @@ func (s *Server) broadcastGameOver() {
 		return
 	}
 
-	// Build rankings
+	// Build rankings with survival time
 	rankings := make([]protocol.PlayerRanking, len(s.gameState.Players))
 	for i, p := range s.gameState.Players {
+		// Convert survival ticks to seconds (20 ticks per second)
+		survivalSec := p.SurvivalTicks / 20
 		rankings[i] = protocol.PlayerRanking{
-			PlayerID: p.ID,
-			Name:     p.Name,
-			Score:    p.Score,
+			PlayerID:     p.ID,
+			Name:         p.Name,
+			Score:        p.Score,
+			SurvivalTime: survivalSec,
 		}
 	}
 

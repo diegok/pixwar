@@ -20,6 +20,8 @@ type Player struct {
 	Alive           bool
 	Protected       bool
 	ProtectionTicks int
+	SurvivalTicks   int    // How many ticks the player survived
+	DeathReason     string // Why the player died (empty if alive)
 }
 
 // NewPlayer creates a new player with the given ID, name, and color
@@ -78,9 +80,10 @@ func (p *Player) IsOnOwnTrail(x, y int) bool {
 	return false
 }
 
-// Eliminate marks the player as eliminated
-func (p *Player) Eliminate() {
+// Eliminate marks the player as eliminated with a reason
+func (p *Player) Eliminate(reason string) {
 	p.Alive = false
+	p.DeathReason = reason
 }
 
 // SetDirection sets the player's direction, preventing 180-degree reversals

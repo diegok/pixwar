@@ -1,6 +1,10 @@
 package game
 
-import "github.com/diegok/pixwar/internal/protocol"
+import (
+	"fmt"
+
+	"github.com/diegok/pixwar/internal/protocol"
+)
 
 const (
 	MaxPlayers       = 8
@@ -170,6 +174,9 @@ func (gs *GameState) Tick() {
 			continue
 		}
 
+		// Track survival time for alive players
+		p.SurvivalTicks++
+
 		// Decrement protection
 		if p.Protected {
 			p.DecrementProtection()
@@ -212,14 +219,22 @@ func (gs *GameState) handlePlayerMovement(p *Player, prevX, prevY int) {
 
 	// Check if player hit their own trail
 	if p.IsOnOwnTrail(p.X, p.Y) && !p.Protected {
-		p.Eliminate()
+		p.Eliminate("Hit own trail")
 		gs.Board.ClearPlayerTrails(p.ID)
 		return
 	}
 
 	// Check if player hit another player's trail (and they're not protected)
 	if cell.IsTrail && cell.Owner != p.ID && !p.Protected {
-		p.Eliminate()
+		// Find who owns the trail
+		killerName := "enemy"
+		for _, other := range gs.Players {
+			if other.ID == cell.Owner {
+				killerName = other.Name
+				break
+			}
+		}
+		p.Eliminate(fmt.Sprintf("Hit %s's trail", killerName))
 		gs.Board.ClearPlayerTrails(p.ID)
 		return
 	}
@@ -320,16 +335,17 @@ func (gs *GameState) ToProtocolState() protocol.GameState {
 		}
 
 		players[i] = protocol.PlayerState{
-			ID:        p.ID,
-			Name:      p.Name,
-			Color:     p.Color,
-			Position:  protocol.Position{X: p.X, Y: p.Y},
-			Direction: p.Direction,
-			Trail:     trail,
-			Territory: territory,
-			Score:     p.Score,
-			Alive:     p.Alive,
-			Protected: p.Protected,
+			ID:          p.ID,
+			Name:        p.Name,
+			Color:       p.Color,
+			Position:    protocol.Position{X: p.X, Y: p.Y},
+			Direction:   p.Direction,
+			Trail:       trail,
+			Territory:   territory,
+			Score:       p.Score,
+			Alive:       p.Alive,
+			Protected:   p.Protected,
+			DeathReason: p.DeathReason,
 		}
 	}
 

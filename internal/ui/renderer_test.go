@@ -149,8 +149,8 @@ func TestRenderGame(t *testing.T) {
 
 	// Check that player head is drawn at position (10, 5)
 	r, _, _, _ := sim.GetContent(10, 5)
-	if r != '█' {
-		t.Errorf("Player head at (10,5) = %c, want █", r)
+	if r != '▓' {
+		t.Errorf("Player head at (10,5) = %c, want ▓", r)
 	}
 
 	// Check trail dots
@@ -222,16 +222,16 @@ func TestRenderSpectator(t *testing.T) {
 		},
 	}
 
-	renderer.RenderSpectator(state, 1, 3, 25)
+	renderer.RenderSpectator(state, 1, 3, 25, "Hit own trail")
 
-	// Check spectator status bar contains ELIMINATED
+	// Check spectator status bar contains SPECTATING
 	text := ""
 	for x := 0; x < 80; x++ {
 		r, _, _, _ := sim.GetContent(x, 23) // Bottom line
 		text += string(r)
 	}
-	if !containsSubstring(text, "ELIMINATED") {
-		t.Error("RenderSpectator did not show ELIMINATED in status bar")
+	if !containsSubstring(text, "SPECTATING") {
+		t.Error("RenderSpectator did not show SPECTATING in status bar")
 	}
 }
 

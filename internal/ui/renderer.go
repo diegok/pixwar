@@ -262,12 +262,19 @@ func (r *Renderer) RenderGameOver(state protocol.GameOverState) {
 }
 
 // RenderSpectator draws the game in spectator mode
-func (r *Renderer) RenderSpectator(state protocol.GameState, watchingID, myRank, myScore int) {
+func (r *Renderer) RenderSpectator(state protocol.GameState, watchingID, myRank, myScore int, deathReason string) {
 	r.screen.Clear()
-	_, screenH := r.screen.Size()
+	screenW, screenH := r.screen.Size()
 
 	// Render the board
 	r.renderBoard(state)
+
+	// Show death message at top of screen
+	if deathReason != "" {
+		deathStyle := tcell.StyleDefault.Foreground(tcell.ColorRed).Bold(true)
+		deathMsg := fmt.Sprintf(" YOU DIED: %s ", deathReason)
+		r.screen.DrawText((screenW-len(deathMsg))/2, 0, deathMsg, deathStyle)
+	}
 
 	// Render spectator status bar
 	r.renderSpectatorStatusBar(state, watchingID, myRank, myScore, screenH)
@@ -294,8 +301,8 @@ func (r *Renderer) renderSpectatorStatusBar(state protocol.GameState, watchingID
 	}
 
 	// Build status line
-	statusLine := fmt.Sprintf(" ELIMINATED! Rank: #%d | Score: %d | Watching: %s | TAB: next player | Q: quit",
-		myRank, myScore, watchedName)
+	statusLine := fmt.Sprintf(" SPECTATING | Your Score: %d | Rank: #%d | Watching: %s | TAB: next | Q: quit",
+		myScore, myRank, watchedName)
 
 	r.screen.DrawText(0, statusY, statusLine, defaultStyle)
 }
