@@ -374,7 +374,7 @@ func (s *Server) BroadcastLobbyState() {
 			players = append(players, protocol.LobbyPlayer{
 				ID:    client.ID,
 				Name:  client.Name,
-				Color: client.ID % 8, // Simple color assignment
+				Color: (client.ID - 1) % 8, // 0-based color assignment (IDs start at 1)
 				Ready: true,
 			})
 		}

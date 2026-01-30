@@ -31,8 +31,8 @@ type GameState struct {
 	EndReason    string
 }
 
-// Player colors (ANSI terminal colors)
-var playerColors = []int{1, 2, 3, 4, 5, 6, 9, 10} // red, green, yellow, blue, magenta, cyan, bright red, bright green
+// Player colors (0-based indices matching UI PlayerColors array)
+var playerColors = []int{0, 1, 2, 3, 4, 5, 6, 7} // red, blue, green, yellow, purple, orange, teal, fuchsia
 
 // NewGameState creates a new game state with the specified board size and duration
 func NewGameState(width, height, durationSec int) *GameState {
@@ -224,21 +224,31 @@ func (gs *GameState) handlePlayerMovement(p *Player, prevX, prevY int) {
 		return
 	}
 
-	// Check if player is on their own territory
+	// Check if player is on their own territory or on the board edge
 	isOnOwnTerritory := cell.Owner == p.ID && !cell.IsTrail
+	isOnEdge := gs.Board.IsOnEdge(p.X, p.Y)
+	wasOnEdge := gs.Board.IsOnEdge(prevX, prevY)
 
-	if isOnOwnTerritory {
-		// If player was trailing and returned to territory, capture
-		if len(p.Trail) > 0 {
-			captured := gs.Board.CaptureTerritory(p.ID, p.Trail)
-			p.Score += captured
-			p.ClearTrail()
+	// Safe zone = own territory or board edge
+	isInSafeZone := isOnOwnTerritory || isOnEdge
+
+	// Capture territory when returning to safe zone with a trail
+	if isInSafeZone && len(p.Trail) > 0 {
+		captured := gs.Board.CaptureTerritory(p.ID, p.Trail)
+		p.Score += captured
+		p.ClearTrail()
+	} else if !isInSafeZone {
+		// Moving in unsafe territory - create trail
+		// Only add trail point if we weren't on edge (avoid edge points in trail)
+		if !wasOnEdge {
+			p.AddTrailPoint(prevX, prevY)
+			gs.Board.SetTrail(prevX, prevY, p.ID)
+		} else {
+			// Starting from edge - just add current trail without the edge point
+			// The first point off the edge starts the trail
 		}
-	} else {
-		// Not on own territory, add to trail
-		p.AddTrailPoint(prevX, prevY)
-		gs.Board.SetTrail(prevX, prevY, p.ID)
 	}
+	// If in safe zone without trail, nothing to do (just moving safely)
 }
 
 // checkWinConditions checks if the game should end
