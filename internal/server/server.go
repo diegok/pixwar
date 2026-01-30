@@ -434,3 +434,50 @@ func (s *Server) removeClient(clientID int) {
 		s.gameState.RemovePlayer(client.PlayerID)
 	}
 }
+
+// NotifyShutdown broadcasts a game over message to all clients before shutdown
+func (s *Server) NotifyShutdown() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Build rankings from current state if game is in progress
+	var rankings []protocol.PlayerRanking
+	if s.gameState != nil {
+		rankings = make([]protocol.PlayerRanking, len(s.gameState.Players))
+		for i, p := range s.gameState.Players {
+			rankings[i] = protocol.PlayerRanking{
+				PlayerID: p.ID,
+				Name:     p.Name,
+				Score:    p.Score,
+			}
+		}
+
+		// Sort by score (descending)
+		for i := 0; i < len(rankings)-1; i++ {
+			for j := i + 1; j < len(rankings); j++ {
+				if rankings[j].Score > rankings[i].Score {
+					rankings[i], rankings[j] = rankings[j], rankings[i]
+				}
+			}
+		}
+
+		// Assign ranks
+		for i := range rankings {
+			rankings[i].Rank = i + 1
+		}
+	}
+
+	gameOver := protocol.GameOverState{
+		Rankings: rankings,
+		Reason:   "shutdown",
+	}
+
+	msg := &protocol.Message{
+		Type:    protocol.MsgGameOver,
+		Payload: gameOver,
+	}
+
+	for _, client := range s.clients {
+		client.Send(msg)
+	}
+}

@@ -103,12 +103,12 @@ func TestSetPosition(t *testing.T) {
 
 func TestMove(t *testing.T) {
 	testCases := []struct {
-		name         string
-		direction    protocol.Direction
-		startX       int
-		startY       int
-		expectedX    int
-		expectedY    int
+		name      string
+		direction protocol.Direction
+		startX    int
+		startY    int
+		expectedX int
+		expectedY int
 	}{
 		{"up decreases Y", protocol.DirUp, 5, 5, 5, 4},
 		{"down increases Y", protocol.DirDown, 5, 5, 5, 6},
