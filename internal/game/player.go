@@ -22,6 +22,11 @@ type Player struct {
 	ProtectionTicks int
 	SurvivalTicks   int    // How many ticks the player survived
 	DeathReason     string // Why the player died (empty if alive)
+	// Powerup effects
+	SpeedBoost  bool // Moves twice as fast
+	SpeedTicks  int  // Ticks remaining for speed boost
+	Frozen      bool // Cannot move
+	FrozenTicks int  // Ticks remaining frozen
 }
 
 // NewPlayer creates a new player with the given ID, name, and color
@@ -123,6 +128,34 @@ func (p *Player) DecrementProtection() {
 		p.ProtectionTicks--
 		if p.ProtectionTicks == 0 {
 			p.Protected = false
+		}
+	}
+}
+
+// ApplySpeedBoost gives the player a speed boost for the specified ticks
+func (p *Player) ApplySpeedBoost(ticks int) {
+	p.SpeedBoost = true
+	p.SpeedTicks = ticks
+}
+
+// ApplyFreeze freezes the player for the specified ticks
+func (p *Player) ApplyFreeze(ticks int) {
+	p.Frozen = true
+	p.FrozenTicks = ticks
+}
+
+// DecrementEffects decreases all active effect timers
+func (p *Player) DecrementEffects() {
+	if p.SpeedTicks > 0 {
+		p.SpeedTicks--
+		if p.SpeedTicks == 0 {
+			p.SpeedBoost = false
+		}
+	}
+	if p.FrozenTicks > 0 {
+		p.FrozenTicks--
+		if p.FrozenTicks == 0 {
+			p.Frozen = false
 		}
 	}
 }

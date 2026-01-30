@@ -2,14 +2,21 @@ package game
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/diegok/pixwar/internal/protocol"
 )
 
 const (
 	MaxPlayers       = 8
-	ProtectionTicks  = 40 // 2 seconds at 20 ticks/sec
-	MoveTickInterval = 2  // Move every 2 ticks = 10 moves/sec at 20 ticks/sec
+	ProtectionTicks  = 40  // 2 seconds at 20 ticks/sec
+	MoveTickInterval = 2   // Move every 2 ticks = 10 moves/sec at 20 ticks/sec
+	PowerupSpawnRate = 100 // Spawn powerup every ~5 seconds (100 ticks)
+	PowerupTTL       = 200 // Powerup despawns after 10 seconds
+	PowerupMaxCount  = 3   // Max powerups on board at once
+	SpeedBoostTicks  = 100 // Speed boost lasts 5 seconds
+	ShieldTicks      = 80  // Shield lasts 4 seconds
+	FreezeTicks      = 40  // Freeze lasts 2 seconds
 )
 
 // Powerup represents an active powerup on the board
@@ -168,6 +175,11 @@ func (gs *GameState) Tick() {
 		}
 	}
 
+	// Spawn powerups if enabled
+	if gs.PowerupsOn {
+		gs.updatePowerups()
+	}
+
 	// Process each player
 	for _, p := range gs.Players {
 		if !p.Alive {
@@ -182,27 +194,48 @@ func (gs *GameState) Tick() {
 			p.DecrementProtection()
 		}
 
+		// Decrement powerup effects
+		p.DecrementEffects()
+
 		// Only move players every MoveTickInterval ticks (to slow down the game)
 		if gs.Tick_%MoveTickInterval != 0 {
 			continue
 		}
 
+		// Frozen players can't move
+		if p.Frozen {
+			continue
+		}
+
 		// Move player
 		if p.Direction != protocol.DirNone {
-			// Store previous position
-			prevX, prevY := p.X, p.Y
-
-			// Move
-			p.Move()
-
-			// Check if player is outside the board - undo move if so
-			if !gs.Board.IsInBounds(p.X, p.Y) {
-				p.X, p.Y = prevX, prevY
-				continue
+			// Speed boost: move twice
+			moves := 1
+			if p.SpeedBoost {
+				moves = 2
 			}
 
-			// Handle territory/trail logic
-			gs.handlePlayerMovement(p, prevX, prevY)
+			for m := 0; m < moves; m++ {
+				// Store previous position
+				prevX, prevY := p.X, p.Y
+
+				// Move
+				p.Move()
+
+				// Check if player is outside the board - undo move if so
+				if !gs.Board.IsInBounds(p.X, p.Y) {
+					p.X, p.Y = prevX, prevY
+					break
+				}
+
+				// Handle territory/trail logic and powerup collection
+				gs.handlePlayerMovement(p, prevX, prevY)
+
+				// Stop if player died
+				if !p.Alive {
+					break
+				}
+			}
 		}
 	}
 
@@ -210,11 +243,97 @@ func (gs *GameState) Tick() {
 	gs.checkWinConditions()
 }
 
+// updatePowerups handles spawning and expiring powerups
+func (gs *GameState) updatePowerups() {
+	// Decay existing powerups
+	remaining := make([]*Powerup, 0, len(gs.Powerups))
+	for _, pu := range gs.Powerups {
+		pu.TTL--
+		if pu.TTL > 0 {
+			remaining = append(remaining, pu)
+		}
+	}
+	gs.Powerups = remaining
+
+	// Maybe spawn a new powerup
+	if len(gs.Powerups) < PowerupMaxCount && rand.Intn(PowerupSpawnRate) == 0 {
+		gs.spawnPowerup()
+	}
+}
+
+// spawnPowerup places a new random powerup on the board
+func (gs *GameState) spawnPowerup() {
+	// Find a valid spawn location (not on territory, trail, or edge)
+	maxAttempts := 50
+	for i := 0; i < maxAttempts; i++ {
+		x := rand.Intn(gs.Board.Width-2) + 1  // Avoid edges
+		y := rand.Intn(gs.Board.Height-2) + 1 // Avoid edges
+
+		cell := gs.Board.GetCell(x, y)
+		if cell == nil || cell.Owner != -1 || cell.IsTrail {
+			continue
+		}
+
+		// Check not on existing powerup
+		occupied := false
+		for _, pu := range gs.Powerups {
+			if pu.X == x && pu.Y == y {
+				occupied = true
+				break
+			}
+		}
+		if occupied {
+			continue
+		}
+
+		// Random powerup type
+		puType := protocol.PowerupType(rand.Intn(3))
+		gs.Powerups = append(gs.Powerups, &Powerup{
+			Type: puType,
+			X:    x,
+			Y:    y,
+			TTL:  PowerupTTL,
+		})
+		return
+	}
+}
+
+// collectPowerup checks if player is on a powerup and applies its effect
+func (gs *GameState) collectPowerup(p *Player) {
+	for i, pu := range gs.Powerups {
+		if pu.X == p.X && pu.Y == p.Y {
+			// Apply effect
+			switch pu.Type {
+			case protocol.PowerupSpeed:
+				p.ApplySpeedBoost(SpeedBoostTicks)
+			case protocol.PowerupShield:
+				p.GrantProtection(ShieldTicks)
+			case protocol.PowerupFreeze:
+				// Freeze all OTHER players
+				for _, other := range gs.Players {
+					if other.ID != p.ID && other.Alive && !other.Protected {
+						other.ApplyFreeze(FreezeTicks)
+					}
+				}
+			}
+			// Remove powerup
+			gs.Powerups = append(gs.Powerups[:i], gs.Powerups[i+1:]...)
+			p.Score += 10 // Bonus points for collecting
+			return
+		}
+	}
+}
+
 // handlePlayerMovement handles trail creation and territory capture after a move
 func (gs *GameState) handlePlayerMovement(p *Player, prevX, prevY int) {
 	cell := gs.Board.GetCell(p.X, p.Y)
 	if cell == nil {
 		return
+	}
+
+	// Check for powerup collection
+	if gs.PowerupsOn {
+		gs.collectPowerup(p)
 	}
 
 	// Check if player hit their own trail - this captures the enclosed area!
