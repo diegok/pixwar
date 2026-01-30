@@ -9,7 +9,7 @@ import (
 // KeyToDirection converts a key event to a direction
 // Arrow keys and WASD are supported
 func KeyToDirection(key tcell.Key, r rune) protocol.Direction {
-	// Check arrow keys
+	// Check arrow keys first
 	switch key {
 	case tcell.KeyUp:
 		return protocol.DirUp
@@ -21,7 +21,8 @@ func KeyToDirection(key tcell.Key, r rune) protocol.Direction {
 		return protocol.DirRight
 	}
 
-	// Check WASD (case insensitive)
+	// Check WASD (for regular character keys, key will be KeyRune)
+	// Also handle case where key might not be KeyRune but rune is set
 	switch r {
 	case 'w', 'W':
 		return protocol.DirUp
