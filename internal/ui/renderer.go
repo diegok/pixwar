@@ -26,6 +26,7 @@ func (r *Renderer) RenderLobby(state protocol.LobbyState) {
 
 	titleStyle := tcell.StyleDefault.Bold(true)
 	defaultStyle := tcell.StyleDefault
+	dimStyle := tcell.StyleDefault.Dim(true)
 
 	// Title
 	title := "=== PIXWAR LOBBY ==="
@@ -51,6 +52,22 @@ func (r *Renderer) RenderLobby(state protocol.LobbyState) {
 		}
 		line := fmt.Sprintf("%d. %s%s", i+1, p.Name, readyStr)
 		r.screen.DrawText(boxX+2, boxY+2+i, line, playerStyle)
+	}
+
+	// Show server addresses for host
+	if state.IsHost && len(state.ServerAddrs) > 0 {
+		addrY := boxY + boxH + 1
+		r.screen.DrawText(boxX, addrY, "Others can join with:", dimStyle)
+		addrY++
+		maxAddrs := 5 // Limit displayed addresses
+		for i, addr := range state.ServerAddrs {
+			if i >= maxAddrs {
+				r.screen.DrawText(boxX+2, addrY, fmt.Sprintf("... and %d more", len(state.ServerAddrs)-maxAddrs), dimStyle)
+				break
+			}
+			r.screen.DrawText(boxX+2, addrY, fmt.Sprintf("pixwar --join %s", addr), dimStyle)
+			addrY++
+		}
 	}
 
 	// Instructions

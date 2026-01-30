@@ -99,9 +99,10 @@ const (
 
 // LobbyState broadcast while waiting
 type LobbyState struct {
-	Players  []LobbyPlayer
-	IsHost   bool
-	CanStart bool
+	Players     []LobbyPlayer
+	IsHost      bool
+	CanStart    bool
+	ServerAddrs []string // IP addresses to connect to (shown to host)
 }
 
 // LobbyPlayer in waiting room

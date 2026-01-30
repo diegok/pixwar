@@ -78,6 +78,35 @@ func (s *Server) Addr() string {
 	return s.listener.Addr().String()
 }
 
+// GetServerAddresses returns all IP addresses clients can use to connect
+func (s *Server) GetServerAddresses() []string {
+	var addresses []string
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return []string{fmt.Sprintf("localhost:%d", s.cfg.Port)}
+	}
+
+	for _, addr := range addrs {
+		ipNet, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+
+		ip := ipNet.IP
+		if ip.IsLoopback() || ip.To4() == nil {
+			continue
+		}
+
+		addresses = append(addresses, fmt.Sprintf("%s:%d", ip.String(), s.cfg.Port))
+	}
+
+	// Always include localhost
+	addresses = append(addresses, fmt.Sprintf("localhost:%d", s.cfg.Port))
+
+	return addresses
+}
+
 // Stop gracefully shuts down the server
 func (s *Server) Stop() {
 	s.mu.Lock()
@@ -352,6 +381,7 @@ func (s *Server) BroadcastLobbyState() {
 	}
 
 	canStart := len(players) >= 1
+	serverAddrs := s.GetServerAddresses()
 
 	for _, client := range s.clients {
 		// First client is the host
@@ -361,6 +391,11 @@ func (s *Server) BroadcastLobbyState() {
 			Players:  players,
 			IsHost:   isHost,
 			CanStart: canStart,
+		}
+
+		// Only send server addresses to the host
+		if isHost {
+			lobbyState.ServerAddrs = serverAddrs
 		}
 
 		msg := &protocol.Message{

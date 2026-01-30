@@ -182,10 +182,9 @@ func (gs *GameState) Tick() {
 			// Move
 			p.Move()
 
-			// Check if player is outside the board
+			// Check if player is outside the board - undo move if so
 			if !gs.Board.IsInBounds(p.X, p.Y) {
-				p.Eliminate()
-				gs.Board.ClearPlayerTrails(p.ID)
+				p.X, p.Y = prevX, prevY
 				continue
 			}
 
