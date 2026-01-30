@@ -227,26 +227,19 @@ func (gs *GameState) handlePlayerMovement(p *Player, prevX, prevY int) {
 	// Check if player is on their own territory or on the board edge
 	isOnOwnTerritory := cell.Owner == p.ID && !cell.IsTrail
 	isOnEdge := gs.Board.IsOnEdge(p.X, p.Y)
-	wasOnEdge := gs.Board.IsOnEdge(prevX, prevY)
 
 	// Safe zone = own territory or board edge
 	isInSafeZone := isOnOwnTerritory || isOnEdge
 
-	// Capture territory when returning to safe zone with a trail
-	if isInSafeZone && len(p.Trail) > 0 {
+	if !isInSafeZone {
+		// Moving in unsafe territory - add current position to trail
+		p.AddTrailPoint(p.X, p.Y)
+		gs.Board.SetTrail(p.X, p.Y, p.ID)
+	} else if len(p.Trail) > 0 {
+		// Returned to safe zone with a trail - capture territory
 		captured := gs.Board.CaptureTerritory(p.ID, p.Trail)
 		p.Score += captured
 		p.ClearTrail()
-	} else if !isInSafeZone {
-		// Moving in unsafe territory - create trail
-		// Only add trail point if we weren't on edge (avoid edge points in trail)
-		if !wasOnEdge {
-			p.AddTrailPoint(prevX, prevY)
-			gs.Board.SetTrail(prevX, prevY, p.ID)
-		} else {
-			// Starting from edge - just add current trail without the edge point
-			// The first point off the edge starts the trail
-		}
 	}
 	// If in safe zone without trail, nothing to do (just moving safely)
 }

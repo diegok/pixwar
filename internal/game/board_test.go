@@ -362,42 +362,46 @@ func TestCaptureTerritory(t *testing.T) {
 	t.Run("capture selects smaller side when dividing board", func(t *testing.T) {
 		b := NewBoard(10, 10)
 
-		// Create a vertical trail that divides the board
-		// Trail at x=3 from top to bottom (divides into left side 3 cols, right side 6 cols)
+		// Create a vertical trail that divides the board interior
+		// Trail at x=3 from y=1 to y=8 (interior only, edges are boundaries)
+		// This divides interior into left (x=1,2) and right (x=4-8) regions
 		trail := []Point{
-			{3, 0}, {3, 1}, {3, 2}, {3, 3}, {3, 4},
-			{3, 5}, {3, 6}, {3, 7}, {3, 8}, {3, 9},
+			{3, 1}, {3, 2}, {3, 3}, {3, 4},
+			{3, 5}, {3, 6}, {3, 7}, {3, 8},
 		}
 
 		captured := b.CaptureTerritory(1, trail)
 
-		// The smaller region is the left side (columns 0-2, 3 columns * 10 rows = 30 cells)
-		// Trail cells = 10
-		// Total should be 10 (trail) + 30 (smaller region) = 40
+		// Interior regions (edges x=0,9 and y=0,9 are boundaries, not captured):
+		// Left interior: x=1,2 and y=1-8 = 2*8 = 16 cells
+		// Right interior: x=4-8 and y=1-8 = 5*8 = 40 cells
+		// Smaller region (left) is captured
+		// Trail cells = 8
+		// Total should be 8 (trail) + 16 (smaller interior region) = 24
 
-		// Check that left side is captured (smaller region)
-		for y := 0; y < 10; y++ {
-			for x := 0; x < 3; x++ {
+		// Check that left interior is captured (smaller region)
+		for y := 1; y < 9; y++ {
+			for x := 1; x < 3; x++ {
 				cell := b.GetCell(x, y)
 				if cell.Owner != 1 {
-					t.Errorf("left side cell (%d, %d) should be owned by player 1, got owner %d", x, y, cell.Owner)
+					t.Errorf("left interior cell (%d, %d) should be owned by player 1, got owner %d", x, y, cell.Owner)
 				}
 			}
 		}
 
-		// Check that right side is NOT captured (larger region)
-		for y := 0; y < 10; y++ {
-			for x := 4; x < 10; x++ {
+		// Check that right interior is NOT captured (larger region)
+		for y := 1; y < 9; y++ {
+			for x := 4; x < 9; x++ {
 				cell := b.GetCell(x, y)
 				if cell.Owner == 1 {
-					t.Errorf("right side cell (%d, %d) should NOT be owned by player 1", x, y)
+					t.Errorf("right interior cell (%d, %d) should NOT be owned by player 1", x, y)
 				}
 			}
 		}
 
-		// Trail (10) + left side (30) = 40
-		if captured != 40 {
-			t.Errorf("expected 40 captured cells, got %d", captured)
+		// Trail (8) + left interior (16) = 24
+		if captured != 24 {
+			t.Errorf("expected 24 captured cells, got %d", captured)
 		}
 	})
 

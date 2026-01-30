@@ -277,7 +277,11 @@ func TestTick(t *testing.T) {
 		p.Direction = protocol.DirRight
 		p.Protected = false
 
-		gs.Tick()
+		// Players only move every MoveTickInterval ticks
+		// First tick (Tick_=1) doesn't move, need to reach Tick_ divisible by MoveTickInterval
+		for i := 0; i < MoveTickInterval; i++ {
+			gs.Tick()
+		}
 
 		if p.X != 51 {
 			t.Errorf("expected X 51, got %d", p.X)

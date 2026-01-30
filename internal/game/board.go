@@ -129,9 +129,20 @@ func (b *Board) CaptureTerritory(playerID int, trail []Point) int {
 	}
 
 	// 3. Find all distinct regions separated by the trail using flood fill
+	// The boundary consists of: edges + trail + existing territory
 	visited := make([][]bool, b.Height)
 	for y := range visited {
 		visited[y] = make([]bool, b.Width)
+	}
+
+	// Mark ALL edge cells as boundary (visited) - this is critical for Qix-style capture
+	for x := 0; x < b.Width; x++ {
+		visited[0][x] = true           // Top edge
+		visited[b.Height-1][x] = true  // Bottom edge
+	}
+	for y := 0; y < b.Height; y++ {
+		visited[y][0] = true           // Left edge
+		visited[y][b.Width-1] = true   // Right edge
 	}
 
 	// Mark trail cells as visited so we don't flood fill through them
@@ -151,10 +162,10 @@ func (b *Board) CaptureTerritory(playerID int, trail []Point) int {
 		}
 	}
 
-	// Find all regions
+	// Find all regions in the interior (non-edge cells)
 	var regions [][]Point
-	for y := 0; y < b.Height; y++ {
-		for x := 0; x < b.Width; x++ {
+	for y := 1; y < b.Height-1; y++ {
+		for x := 1; x < b.Width-1; x++ {
 			if !visited[y][x] {
 				region := b.floodFill(x, y, visited)
 				if len(region) > 0 {
@@ -165,41 +176,20 @@ func (b *Board) CaptureTerritory(playerID int, trail []Point) int {
 	}
 
 	// 4. Capture the smaller region (Qix rule)
-	// If there's only one or no regions, nothing more to capture
 	captured := len(trail)
 	if len(regions) == 0 {
 		return captured
 	}
 
-	// Find regions that don't touch the board edge (enclosed regions)
-	// If no enclosed regions, capture the smallest one
-	var smallestRegion []Point
-	var enclosedRegions [][]Point
-
-	for _, region := range regions {
-		touchesEdge := false
-		for _, pt := range region {
-			if b.IsOnEdge(pt.X, pt.Y) {
-				touchesEdge = true
-				break
-			}
+	if len(regions) == 1 {
+		// Only one region - capture it (trail divided interior from edge)
+		for _, pt := range regions[0] {
+			b.SetTerritory(pt.X, pt.Y, playerID)
 		}
-		if !touchesEdge {
-			enclosedRegions = append(enclosedRegions, region)
-		}
-	}
-
-	if len(enclosedRegions) > 0 {
-		// Capture all enclosed regions
-		for _, region := range enclosedRegions {
-			for _, pt := range region {
-				b.SetTerritory(pt.X, pt.Y, playerID)
-			}
-			captured += len(region)
-		}
-	} else if len(regions) > 1 {
-		// No enclosed regions, capture the smallest region
-		smallestRegion = regions[0]
+		captured += len(regions[0])
+	} else {
+		// Multiple regions - capture the smallest one
+		smallestRegion := regions[0]
 		for _, region := range regions[1:] {
 			if len(region) < len(smallestRegion) {
 				smallestRegion = region
