@@ -110,10 +110,16 @@ func (r *Renderer) RenderLobby(state protocol.LobbyState) {
 // RenderGame draws the main game state
 func (r *Renderer) RenderGame(state protocol.GameState, myID int) {
 	r.screen.Clear()
-	_, screenH := r.screen.Size()
+	screenW, screenH := r.screen.Size()
 
 	// Render the board
 	r.renderBoard(state, myID)
+
+	// Render scoreboard on the right (if there's room)
+	scoreboardX := state.BoardWidth + 1
+	if scoreboardX < screenW-15 { // Need at least 15 chars for scoreboard
+		r.renderScoreboard(state, scoreboardX, myID)
+	}
 
 	// Render status bar at the bottom
 	r.renderStatusBar(state, myID, screenH)
@@ -205,6 +211,64 @@ func (r *Renderer) renderBoard(state protocol.GameState, myID int) {
 			p.Position.Y >= 0 && p.Position.Y < state.BoardHeight {
 			r.screen.SetCell(p.Position.X, p.Position.Y, style, char)
 		}
+	}
+}
+
+// renderScoreboard draws a scoreboard panel with player scores
+func (r *Renderer) renderScoreboard(state protocol.GameState, x int, myID int) {
+	titleStyle := tcell.StyleDefault.Bold(true)
+	defaultStyle := tcell.StyleDefault
+
+	// Header
+	r.screen.DrawText(x, 0, "SCOREBOARD", titleStyle)
+	r.screen.DrawText(x, 1, "──────────", defaultStyle)
+
+	// Sort players by score (descending)
+	type playerScore struct {
+		ID    int
+		Name  string
+		Color int
+		Score int
+		Alive bool
+	}
+	scores := make([]playerScore, len(state.Players))
+	for i, p := range state.Players {
+		scores[i] = playerScore{p.ID, p.Name, p.Color, p.Score, p.Alive}
+	}
+	// Simple sort by score
+	for i := 0; i < len(scores)-1; i++ {
+		for j := i + 1; j < len(scores); j++ {
+			if scores[j].Score > scores[i].Score {
+				scores[i], scores[j] = scores[j], scores[i]
+			}
+		}
+	}
+
+	// Draw each player
+	for i, ps := range scores {
+		y := 2 + i
+		playerStyle := GetPlayerStyle(ps.Color)
+
+		// Mark own player
+		prefix := "  "
+		if ps.ID == myID {
+			prefix = "> "
+		}
+
+		// Dead players shown dimmed
+		if !ps.Alive {
+			playerStyle = playerStyle.Dim(true)
+		}
+
+		// Draw the line: "> Name: 123"
+		r.screen.DrawText(x, y, prefix, defaultStyle)
+		name := ps.Name
+		if len(name) > 8 {
+			name = name[:8]
+		}
+		r.screen.DrawText(x+2, y, name, playerStyle)
+		scoreStr := fmt.Sprintf(": %d", ps.Score)
+		r.screen.DrawText(x+2+len(name), y, scoreStr, defaultStyle)
 	}
 }
 
@@ -314,6 +378,12 @@ func (r *Renderer) RenderSpectator(state protocol.GameState, watchingID, myRank,
 
 	// Render the board (highlight watched player)
 	r.renderBoard(state, watchingID)
+
+	// Render scoreboard on the right (if there's room)
+	scoreboardX := state.BoardWidth + 1
+	if scoreboardX < screenW-15 {
+		r.renderScoreboard(state, scoreboardX, -1) // -1 since spectator is not in the game
+	}
 
 	// Show death message at top of screen
 	if deathReason != "" {
