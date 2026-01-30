@@ -5,7 +5,7 @@ import "github.com/diegok/pixwar/internal/protocol"
 const (
 	MaxPlayers       = 8
 	ProtectionTicks  = 40 // 2 seconds at 20 ticks/sec
-	MoveTickInterval = 4  // Move every 4 ticks = 5 moves/sec at 20 ticks/sec
+	MoveTickInterval = 2  // Move every 2 ticks = 10 moves/sec at 20 ticks/sec
 )
 
 // Powerup represents an active powerup on the board
