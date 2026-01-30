@@ -362,6 +362,22 @@ func (gs *GameState) handlePlayerMovement(p *Player, prevX, prevY int) {
 		return
 	}
 
+	// Check for collision with another player's body
+	for _, other := range gs.Players {
+		if other.ID != p.ID && other.Alive && other.X == p.X && other.Y == p.Y {
+			// Both die (unless protected)
+			if !p.Protected {
+				p.Eliminate(fmt.Sprintf("Collision with %s", other.Name))
+				gs.eliminatePlayer(p)
+			}
+			if !other.Protected {
+				other.Eliminate(fmt.Sprintf("Collision with %s", p.Name))
+				gs.eliminatePlayer(other)
+			}
+			return
+		}
+	}
+
 	// Check for powerup collection
 	if gs.PowerupsOn {
 		gs.collectPowerup(p)
