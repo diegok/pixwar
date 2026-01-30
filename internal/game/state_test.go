@@ -59,11 +59,11 @@ func TestNewGameState(t *testing.T) {
 }
 
 func TestAddPlayer(t *testing.T) {
-	t.Run("adds player with incremented ID", func(t *testing.T) {
+	t.Run("adds player with specified ID", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p1 := gs.AddPlayer("Alice")
-		p2 := gs.AddPlayer("Bob")
+		p1 := gs.AddPlayer(1, "Alice")
+		p2 := gs.AddPlayer(2, "Bob")
 
 		if p1 == nil {
 			t.Fatal("expected player 1 to be created")
@@ -71,11 +71,11 @@ func TestAddPlayer(t *testing.T) {
 		if p2 == nil {
 			t.Fatal("expected player 2 to be created")
 		}
-		if p1.ID != 0 {
-			t.Errorf("expected first player ID 0, got %d", p1.ID)
+		if p1.ID != 1 {
+			t.Errorf("expected first player ID 1, got %d", p1.ID)
 		}
-		if p2.ID != 1 {
-			t.Errorf("expected second player ID 1, got %d", p2.ID)
+		if p2.ID != 2 {
+			t.Errorf("expected second player ID 2, got %d", p2.ID)
 		}
 	})
 
@@ -83,25 +83,25 @@ func TestAddPlayer(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
 		// Add max players
-		for i := 0; i < MaxPlayers; i++ {
-			p := gs.AddPlayer("Player")
+		for i := 1; i <= MaxPlayers; i++ {
+			p := gs.AddPlayer(i, "Player")
 			if p == nil {
 				t.Fatalf("expected player %d to be added", i)
 			}
 		}
 
 		// Try to add one more
-		p := gs.AddPlayer("Extra")
+		p := gs.AddPlayer(99, "Extra")
 		if p != nil {
 			t.Error("expected nil when max players reached")
 		}
 	})
 
-	t.Run("assigns unique colors", func(t *testing.T) {
+	t.Run("assigns unique colors based on ID", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p1 := gs.AddPlayer("Alice")
-		p2 := gs.AddPlayer("Bob")
+		p1 := gs.AddPlayer(1, "Alice")
+		p2 := gs.AddPlayer(2, "Bob")
 
 		if p1.Color == p2.Color {
 			t.Error("expected players to have different colors")
@@ -113,9 +113,9 @@ func TestGetPlayer(t *testing.T) {
 	t.Run("finds correct player by ID", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p1 := gs.AddPlayer("Alice")
-		gs.AddPlayer("Bob")
-		p3 := gs.AddPlayer("Charlie")
+		p1 := gs.AddPlayer(1, "Alice")
+		gs.AddPlayer(2, "Bob")
+		p3 := gs.AddPlayer(3, "Charlie")
 
 		found := gs.GetPlayer(p1.ID)
 		if found != p1 {
@@ -131,7 +131,7 @@ func TestGetPlayer(t *testing.T) {
 	t.Run("returns nil for non-existent ID", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		gs.AddPlayer("Alice")
+		gs.AddPlayer(1, "Alice")
 
 		found := gs.GetPlayer(999)
 		if found != nil {
@@ -144,8 +144,8 @@ func TestRemovePlayer(t *testing.T) {
 	t.Run("removes player from list", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p1 := gs.AddPlayer("Alice")
-		gs.AddPlayer("Bob")
+		p1 := gs.AddPlayer(1, "Alice")
+		gs.AddPlayer(2, "Bob")
 
 		gs.RemovePlayer(p1.ID)
 
@@ -160,7 +160,7 @@ func TestRemovePlayer(t *testing.T) {
 	t.Run("clears player territory from board", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p := gs.AddPlayer("Alice")
+		p := gs.AddPlayer(1, "Alice")
 		gs.Board.SetTerritory(5, 5, p.ID)
 		gs.Board.SetTrail(6, 5, p.ID)
 
@@ -181,10 +181,10 @@ func TestSpawnPlayers(t *testing.T) {
 	t.Run("positions players on edges", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		gs.AddPlayer("Alice")
-		gs.AddPlayer("Bob")
-		gs.AddPlayer("Charlie")
-		gs.AddPlayer("Dave")
+		gs.AddPlayer(1, "Alice")
+		gs.AddPlayer(2, "Bob")
+		gs.AddPlayer(3, "Charlie")
+		gs.AddPlayer(4, "Dave")
 
 		gs.SpawnPlayers()
 
@@ -198,7 +198,7 @@ func TestSpawnPlayers(t *testing.T) {
 	t.Run("grants protection to spawned players", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		gs.AddPlayer("Alice")
+		gs.AddPlayer(1, "Alice")
 		gs.SpawnPlayers()
 
 		p := gs.Players[0]
@@ -213,8 +213,8 @@ func TestSpawnPlayers(t *testing.T) {
 	t.Run("distributes players evenly around edges", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		for i := 0; i < 4; i++ {
-			gs.AddPlayer("Player")
+		for i := 1; i <= 4; i++ {
+			gs.AddPlayer(i, "Player")
 		}
 		gs.SpawnPlayers()
 
@@ -236,7 +236,7 @@ func TestProcessInput(t *testing.T) {
 	t.Run("changes player direction", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p := gs.AddPlayer("Alice")
+		p := gs.AddPlayer(1, "Alice")
 		p.SetPosition(50, 25)
 
 		gs.ProcessInput(p.ID, protocol.DirUp)
@@ -256,7 +256,7 @@ func TestProcessInput(t *testing.T) {
 	t.Run("does not change direction for dead player", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p := gs.AddPlayer("Alice")
+		p := gs.AddPlayer(1, "Alice")
 		p.Direction = protocol.DirRight
 		p.Eliminate()
 
@@ -272,7 +272,7 @@ func TestTick(t *testing.T) {
 	t.Run("moves players in their direction", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p := gs.AddPlayer("Alice")
+		p := gs.AddPlayer(1, "Alice")
 		p.SetPosition(50, 25)
 		p.Direction = protocol.DirRight
 		p.Protected = false
@@ -314,7 +314,7 @@ func TestTick(t *testing.T) {
 	t.Run("decrements protection ticks", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p := gs.AddPlayer("Alice")
+		p := gs.AddPlayer(1, "Alice")
 		p.GrantProtection(10)
 		p.Direction = protocol.DirRight
 		p.SetPosition(50, 25)
@@ -329,7 +329,7 @@ func TestTick(t *testing.T) {
 	t.Run("does not move dead players", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p := gs.AddPlayer("Alice")
+		p := gs.AddPlayer(1, "Alice")
 		p.SetPosition(50, 25)
 		p.Direction = protocol.DirRight
 		p.Eliminate()
@@ -346,9 +346,9 @@ func TestAliveCount(t *testing.T) {
 	t.Run("counts alive players", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		gs.AddPlayer("Alice")
-		gs.AddPlayer("Bob")
-		gs.AddPlayer("Charlie")
+		gs.AddPlayer(1, "Alice")
+		gs.AddPlayer(2, "Bob")
+		gs.AddPlayer(3, "Charlie")
 
 		if gs.AliveCount() != 3 {
 			t.Errorf("expected 3 alive, got %d", gs.AliveCount())
@@ -374,7 +374,7 @@ func TestToProtocolState(t *testing.T) {
 	t.Run("converts to protocol GameState", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p := gs.AddPlayer("Alice")
+		p := gs.AddPlayer(1, "Alice")
 		p.SetPosition(25, 10)
 		p.Score = 500
 
@@ -414,7 +414,7 @@ func TestToProtocolState(t *testing.T) {
 	t.Run("includes player territory", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p := gs.AddPlayer("Alice")
+		p := gs.AddPlayer(1, "Alice")
 		gs.Board.SetTerritory(5, 5, p.ID)
 		gs.Board.SetTerritory(6, 5, p.ID)
 
@@ -428,7 +428,7 @@ func TestToProtocolState(t *testing.T) {
 	t.Run("includes player trail", func(t *testing.T) {
 		gs := NewGameState(100, 50, 120)
 
-		p := gs.AddPlayer("Alice")
+		p := gs.AddPlayer(1, "Alice")
 		p.AddTrailPoint(10, 10)
 		p.AddTrailPoint(11, 10)
 

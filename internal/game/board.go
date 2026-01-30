@@ -175,31 +175,25 @@ func (b *Board) CaptureTerritory(playerID int, trail []Point) int {
 		}
 	}
 
-	// 4. Capture the smaller region (Qix rule)
+	// 4. Capture based on Qix rules
 	captured := len(trail)
-	if len(regions) == 0 {
+
+	// If only 0 or 1 region, the trail didn't divide anything - just keep the trail as territory
+	if len(regions) <= 1 {
 		return captured
 	}
 
-	if len(regions) == 1 {
-		// Only one region - capture it (trail divided interior from edge)
-		for _, pt := range regions[0] {
-			b.SetTerritory(pt.X, pt.Y, playerID)
+	// Multiple regions - capture the smallest one (Qix rule)
+	smallestRegion := regions[0]
+	for _, region := range regions[1:] {
+		if len(region) < len(smallestRegion) {
+			smallestRegion = region
 		}
-		captured += len(regions[0])
-	} else {
-		// Multiple regions - capture the smallest one
-		smallestRegion := regions[0]
-		for _, region := range regions[1:] {
-			if len(region) < len(smallestRegion) {
-				smallestRegion = region
-			}
-		}
-		for _, pt := range smallestRegion {
-			b.SetTerritory(pt.X, pt.Y, playerID)
-		}
-		captured += len(smallestRegion)
 	}
+	for _, pt := range smallestRegion {
+		b.SetTerritory(pt.X, pt.Y, playerID)
+	}
+	captured += len(smallestRegion)
 
 	return captured
 }

@@ -284,10 +284,10 @@ func (s *Server) StartGame() {
 	s.gameState = game.NewGameState(boardWidth, boardHeight, durationSec)
 	s.gameState.PowerupsOn = s.cfg.PowerupsEnabled
 
-	// Add players from connected clients
+	// Add players from connected clients (use client ID as player ID for color consistency)
 	for _, client := range s.clients {
 		if client.Name != "" {
-			player := s.gameState.AddPlayer(client.Name)
+			player := s.gameState.AddPlayer(client.ID, client.Name)
 			if player != nil {
 				client.PlayerID = player.ID
 			}

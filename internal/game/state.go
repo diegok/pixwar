@@ -52,17 +52,17 @@ func NewGameState(width, height, durationSec int) *GameState {
 	}
 }
 
-// AddPlayer adds a new player to the game
+// AddPlayer adds a new player to the game with a specific ID
 // Returns nil if max players has been reached
-func (gs *GameState) AddPlayer(name string) *Player {
+func (gs *GameState) AddPlayer(id int, name string) *Player {
 	if len(gs.Players) >= MaxPlayers {
 		return nil
 	}
 
-	colorIndex := gs.nextPlayerID % len(playerColors)
-	player := NewPlayer(gs.nextPlayerID, name, playerColors[colorIndex])
+	// Use (id-1) for color since client IDs start at 1
+	colorIndex := (id - 1) % len(playerColors)
+	player := NewPlayer(id, name, playerColors[colorIndex])
 	gs.Players = append(gs.Players, player)
-	gs.nextPlayerID++
 
 	return player
 }
