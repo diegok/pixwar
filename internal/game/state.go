@@ -239,8 +239,39 @@ func (gs *GameState) Tick() {
 		}
 	}
 
+	// Check for head-on collisions (two players in same cell)
+	gs.checkHeadOnCollisions()
+
 	// Check win conditions
 	gs.checkWinConditions()
+}
+
+// checkHeadOnCollisions detects when two players occupy the same cell and kills both
+func (gs *GameState) checkHeadOnCollisions() {
+	for i := 0; i < len(gs.Players); i++ {
+		p1 := gs.Players[i]
+		if !p1.Alive {
+			continue
+		}
+		for j := i + 1; j < len(gs.Players); j++ {
+			p2 := gs.Players[j]
+			if !p2.Alive {
+				continue
+			}
+			// Same position = head-on collision
+			if p1.X == p2.X && p1.Y == p2.Y {
+				// Both die unless protected
+				if !p1.Protected {
+					p1.Eliminate(fmt.Sprintf("Collision with %s", p2.Name))
+					gs.eliminatePlayer(p1)
+				}
+				if !p2.Protected {
+					p2.Eliminate(fmt.Sprintf("Collision with %s", p1.Name))
+					gs.eliminatePlayer(p2)
+				}
+			}
+		}
+	}
 }
 
 // updatePowerups handles spawning and expiring powerups
