@@ -482,9 +482,10 @@ func (s *Server) BroadcastLobbyState() {
 		isHost := client.ID == 1
 
 		lobbyState := protocol.LobbyState{
-			Players:  players,
-			IsHost:   isHost,
-			CanStart: canStart,
+			Players:         players,
+			IsHost:          isHost,
+			CanStart:        canStart,
+			PowerupsEnabled: s.cfg.PowerupsEnabled,
 		}
 
 		// Only send server addresses to the host

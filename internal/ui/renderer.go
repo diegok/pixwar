@@ -93,6 +93,13 @@ func (r *Renderer) RenderLobby(state protocol.LobbyState) {
 		r.screen.DrawText(boxX+2, rulesY+2+i, rule, dimStyle)
 	}
 
+	// Show powerups status
+	if state.PowerupsEnabled {
+		powerupStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true)
+		puText := "⚡ POWERUPS ENABLED ⚡"
+		r.screen.DrawText((w-len(puText))/2, rulesY+rulesBoxH+1, puText, powerupStyle)
+	}
+
 	// Instructions
 	var instructions string
 	if state.IsHost && state.CanStart {
@@ -225,15 +232,27 @@ func (r *Renderer) renderScoreboard(state protocol.GameState, x int, myID int) {
 
 	// Sort players by score (descending)
 	type playerScore struct {
-		ID    int
-		Name  string
-		Color int
-		Score int
-		Alive bool
+		ID          int
+		Name        string
+		Color       int
+		Score       int
+		Alive       bool
+		Protected   bool
+		SpeedTicks  int
+		FrozenTicks int
 	}
 	scores := make([]playerScore, len(state.Players))
 	for i, p := range state.Players {
-		scores[i] = playerScore{p.ID, p.Name, p.Color, p.Score, p.Alive}
+		scores[i] = playerScore{
+			ID:          p.ID,
+			Name:        p.Name,
+			Color:       p.Color,
+			Score:       p.Score,
+			Alive:       p.Alive,
+			Protected:   p.Protected,
+			SpeedTicks:  p.SpeedTicks,
+			FrozenTicks: p.FrozenTicks,
+		}
 	}
 	// Simple sort by score
 	for i := 0; i < len(scores)-1; i++ {
@@ -244,9 +263,9 @@ func (r *Renderer) renderScoreboard(state protocol.GameState, x int, myID int) {
 		}
 	}
 
-	// Draw each player
+	// Draw each player (2 lines per player: name+score, then effects)
 	for i, ps := range scores {
-		y := 2 + i
+		y := 2 + i*2 // 2 lines per player
 		playerStyle := GetPlayerStyle(ps.Color)
 
 		// Mark own player
@@ -269,6 +288,25 @@ func (r *Renderer) renderScoreboard(state protocol.GameState, x int, myID int) {
 		r.screen.DrawText(x+2, y, name, playerStyle)
 		scoreStr := fmt.Sprintf(": %d", ps.Score)
 		r.screen.DrawText(x+2+len(name), y, scoreStr, defaultStyle)
+
+		// Show active effects on second line
+		effectX := x + 2
+		if ps.SpeedTicks > 0 {
+			speedStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow)
+			speedStr := fmt.Sprintf("⚡%ds", ps.SpeedTicks/20)
+			r.screen.DrawText(effectX, y+1, speedStr, speedStyle)
+			effectX += len(speedStr) + 1
+		}
+		if ps.Protected {
+			shieldStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+			r.screen.DrawText(effectX, y+1, "🛡", shieldStyle)
+			effectX += 3
+		}
+		if ps.FrozenTicks > 0 {
+			freezeStyle := tcell.StyleDefault.Foreground(tcell.ColorBlue)
+			freezeStr := fmt.Sprintf("❄%ds", ps.FrozenTicks/20)
+			r.screen.DrawText(effectX, y+1, freezeStr, freezeStyle)
+		}
 	}
 }
 

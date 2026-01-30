@@ -473,6 +473,8 @@ func (gs *GameState) ToProtocolState() protocol.GameState {
 			Alive:       p.Alive,
 			Protected:   p.Protected,
 			DeathReason: p.DeathReason,
+			SpeedTicks:  p.SpeedTicks,
+			FrozenTicks: p.FrozenTicks,
 		}
 	}
 

@@ -71,8 +71,11 @@ type PlayerState struct {
 	Territory   []Position
 	Score       int
 	Alive       bool
-	Protected   bool   // spawn protection
+	Protected   bool   // spawn protection or shield powerup
 	DeathReason string // why the player died (empty if alive)
+	// Powerup effects (ticks remaining, 0 = inactive)
+	SpeedTicks  int
+	FrozenTicks int
 }
 
 // GameState broadcast by server each tick
@@ -103,10 +106,11 @@ const (
 
 // LobbyState broadcast while waiting
 type LobbyState struct {
-	Players     []LobbyPlayer
-	IsHost      bool
-	CanStart    bool
-	ServerAddrs []string // IP addresses to connect to (shown to host)
+	Players         []LobbyPlayer
+	IsHost          bool
+	CanStart        bool
+	ServerAddrs     []string // IP addresses to connect to (shown to host)
+	PowerupsEnabled bool     // Whether powerups are enabled for this game
 }
 
 // LobbyPlayer in waiting room
