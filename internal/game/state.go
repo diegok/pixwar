@@ -3,8 +3,9 @@ package game
 import "github.com/diegok/pixwar/internal/protocol"
 
 const (
-	MaxPlayers      = 8
-	ProtectionTicks = 40 // 2 seconds at 20 ticks/sec
+	MaxPlayers       = 8
+	ProtectionTicks  = 40 // 2 seconds at 20 ticks/sec
+	MoveTickInterval = 4  // Move every 4 ticks = 5 moves/sec at 20 ticks/sec
 )
 
 // Powerup represents an active powerup on the board
@@ -174,6 +175,11 @@ func (gs *GameState) Tick() {
 			p.DecrementProtection()
 		}
 
+		// Only move players every MoveTickInterval ticks (to slow down the game)
+		if gs.Tick_%MoveTickInterval != 0 {
+			continue
+		}
+
 		// Move player
 		if p.Direction != protocol.DirNone {
 			// Store previous position
@@ -200,6 +206,9 @@ func (gs *GameState) Tick() {
 // handlePlayerMovement handles trail creation and territory capture after a move
 func (gs *GameState) handlePlayerMovement(p *Player, prevX, prevY int) {
 	cell := gs.Board.GetCell(p.X, p.Y)
+	if cell == nil {
+		return
+	}
 
 	// Check if player hit their own trail
 	if p.IsOnOwnTrail(p.X, p.Y) && !p.Protected {
