@@ -217,25 +217,26 @@ func (gs *GameState) handlePlayerMovement(p *Player, prevX, prevY int) {
 		return
 	}
 
-	// Check if player hit their own trail
-	if p.IsOnOwnTrail(p.X, p.Y) && !p.Protected {
-		p.Eliminate("Hit own trail")
-		gs.Board.ClearPlayerTrails(p.ID)
+	// Check if player hit their own trail - this captures the enclosed area!
+	if p.IsOnOwnTrail(p.X, p.Y) {
+		// Closing own trail = capture territory (Qix-style)
+		captured := gs.Board.CaptureTerritory(p.ID, p.Trail)
+		p.Score += captured
+		p.ClearTrail()
 		return
 	}
 
-	// Check if player hit another player's trail (and they're not protected)
-	if cell.IsTrail && cell.Owner != p.ID && !p.Protected {
-		// Find who owns the trail
-		killerName := "enemy"
+	// Check if player hit another player's trail
+	// The trail owner dies (their trail was vulnerable), not the one who hit it
+	if cell.IsTrail && cell.Owner != p.ID {
+		// Find the trail owner and eliminate them
 		for _, other := range gs.Players {
-			if other.ID == cell.Owner {
-				killerName = other.Name
+			if other.ID == cell.Owner && other.Alive && !other.Protected {
+				other.Eliminate(fmt.Sprintf("Trail cut by %s", p.Name))
+				gs.eliminatePlayer(other)
 				break
 			}
 		}
-		p.Eliminate(fmt.Sprintf("Hit %s's trail", killerName))
-		gs.Board.ClearPlayerTrails(p.ID)
 		return
 	}
 
@@ -257,6 +258,13 @@ func (gs *GameState) handlePlayerMovement(p *Player, prevX, prevY int) {
 		p.ClearTrail()
 	}
 	// If in safe zone without trail, nothing to do (just moving safely)
+}
+
+// eliminatePlayer handles all cleanup when a player is eliminated
+func (gs *GameState) eliminatePlayer(p *Player) {
+	// Clear all their territory and trails from the board
+	gs.Board.ClearPlayerTerritory(p.ID)
+	p.ClearTrail()
 }
 
 // checkWinConditions checks if the game should end
