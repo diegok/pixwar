@@ -55,19 +55,42 @@ func (r *Renderer) RenderLobby(state protocol.LobbyState) {
 	}
 
 	// Show server addresses for host
+	addrY := boxY + boxH + 1
 	if state.IsHost && len(state.ServerAddrs) > 0 {
-		addrY := boxY + boxH + 1
 		r.screen.DrawText(boxX, addrY, "Others can join with:", dimStyle)
 		addrY++
-		maxAddrs := 5 // Limit displayed addresses
+		maxAddrs := 3 // Limit displayed addresses
 		for i, addr := range state.ServerAddrs {
 			if i >= maxAddrs {
 				r.screen.DrawText(boxX+2, addrY, fmt.Sprintf("... and %d more", len(state.ServerAddrs)-maxAddrs), dimStyle)
+				addrY++
 				break
 			}
 			r.screen.DrawText(boxX+2, addrY, fmt.Sprintf("pixwar --join %s", addr), dimStyle)
 			addrY++
 		}
+		addrY++ // Extra spacing
+	}
+
+	// Game Rules section
+	rulesY := addrY
+	rulesBoxH := 10
+	r.screen.DrawBox(boxX, rulesY, boxW, rulesBoxH, defaultStyle)
+	r.screen.DrawText(boxX+2, rulesY+1, "Game Rules:", titleStyle)
+
+	rules := []string{
+		"• Move with WASD or Arrow keys",
+		"• Leave the edge to draw a trail",
+		"• Return to edge to capture territory",
+		"• Captured area = your score",
+		"",
+		"Elimination:",
+		"• Hit your own trail = death",
+		"• Hit another player's trail = death",
+	}
+
+	for i, rule := range rules {
+		r.screen.DrawText(boxX+2, rulesY+2+i, rule, dimStyle)
 	}
 
 	// Instructions

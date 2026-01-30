@@ -107,6 +107,17 @@ func (s *Server) GetServerAddresses() []string {
 	return addresses
 }
 
+// ResetForRematch resets the server state for a new game
+func (s *Server) ResetForRematch() {
+	s.mu.Lock()
+	s.gameState = nil
+	s.inLobby = true
+	s.mu.Unlock()
+
+	// Broadcast lobby state to all clients
+	s.BroadcastLobbyState()
+}
+
 // Stop gracefully shuts down the server
 func (s *Server) Stop() {
 	s.mu.Lock()

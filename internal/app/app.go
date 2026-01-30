@@ -235,10 +235,11 @@ func (a *App) handleEvent(ev tcell.Event) bool {
 				}
 			}
 		} else if a.gameOver {
-			// Game over: Enter to play again (only if server host)
-			if ui.IsStartKey(e.Key()) {
-				// For now, just quit - restart would require more complex logic
-				return true
+			// Game over: Enter to play again (host only)
+			if ui.IsStartKey(e.Key()) && a.server != nil {
+				// Reset state and go back to lobby
+				a.resetForRematch()
+				a.server.ResetForRematch()
 			}
 		}
 
@@ -339,6 +340,18 @@ func (a *App) render() {
 			a.renderer.RenderGame(a.gameState, a.client.PlayerID)
 		}
 	}
+}
+
+// resetForRematch resets the app state for a new game
+func (a *App) resetForRematch() {
+	a.inLobby = true
+	a.inGame = false
+	a.gameOver = false
+	a.spectating = false
+	a.myRank = 0
+	a.myScore = 0
+	a.watchingID = 0
+	a.deathReason = ""
 }
 
 // cleanup shuts down resources
