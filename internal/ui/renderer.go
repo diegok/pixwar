@@ -259,7 +259,7 @@ func (r *Renderer) RenderGameOver(state protocol.GameOverState) {
 		return rankings[i].Rank < rankings[j].Rank
 	})
 
-	// Display rankings
+	// Display rankings with player colors
 	for i, rank := range rankings {
 		var medal string
 		switch rank.Rank {
@@ -272,9 +272,18 @@ func (r *Renderer) RenderGameOver(state protocol.GameOverState) {
 		default:
 			medal = fmt.Sprintf("[%dth]", rank.Rank)
 		}
-		line := fmt.Sprintf("%s %s - Score: %d, Survived: %ds",
-			medal, rank.Name, rank.Score, rank.SurvivalTime)
-		r.screen.DrawText(boxX+2, boxY+2+i, line, defaultStyle)
+		// Use player color for their name
+		playerStyle := GetPlayerStyle(rank.Color)
+		medalPart := fmt.Sprintf("%s ", medal)
+		namePart := rank.Name
+		statsPart := fmt.Sprintf(" - Score: %d, Survived: %ds", rank.Score, rank.SurvivalTime)
+
+		x := boxX + 2
+		r.screen.DrawText(x, boxY+2+i, medalPart, defaultStyle)
+		x += len(medalPart)
+		r.screen.DrawText(x, boxY+2+i, namePart, playerStyle)
+		x += len(namePart)
+		r.screen.DrawText(x, boxY+2+i, statsPart, defaultStyle)
 	}
 
 	// Instructions
@@ -357,6 +366,82 @@ func (r *Renderer) RenderError(err string) {
 
 	instructions := "Press any key to exit"
 	r.screen.DrawText((w-len(instructions))/2, h-2, instructions, defaultStyle)
+
+	r.screen.Show()
+}
+
+// RenderRematch draws the rematch waiting screen
+func (r *Renderer) RenderRematch(state protocol.RematchState) {
+	r.screen.Clear()
+	w, h := r.screen.Size()
+
+	titleStyle := tcell.StyleDefault.Bold(true)
+	defaultStyle := tcell.StyleDefault
+	readyStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	waitingStyle := tcell.StyleDefault.Foreground(tcell.ColorYellow)
+
+	// Title
+	title := "=== REMATCH ==="
+	r.screen.DrawText((w-len(title))/2, 1, title, titleStyle)
+
+	// Draw box around player list
+	boxW := 40
+	boxH := len(state.Players) + 4
+	boxX := (w - boxW) / 2
+	boxY := 3
+	r.screen.DrawBox(boxX, boxY, boxW, boxH, defaultStyle)
+
+	// Header
+	header := "Players:"
+	r.screen.DrawText(boxX+2, boxY+1, header, titleStyle)
+
+	// Player list with ready status
+	for i, p := range state.Players {
+		playerStyle := GetPlayerStyle(p.Color)
+		var statusStr string
+		var statusStyle tcell.Style
+		if p.Ready {
+			statusStr = " [READY]"
+			statusStyle = readyStyle
+		} else {
+			statusStr = " [WAITING...]"
+			statusStyle = waitingStyle
+		}
+		line := fmt.Sprintf("%d. %s", i+1, p.Name)
+		r.screen.DrawText(boxX+2, boxY+2+i, line, playerStyle)
+		r.screen.DrawText(boxX+2+len(line), boxY+2+i, statusStr, statusStyle)
+	}
+
+	// Instructions
+	var instructions string
+	if state.IsHost {
+		if state.AllReady {
+			instructions = "All ready! Press ENTER to start | Q to quit"
+		} else {
+			instructions = "Waiting for all players... | Q to quit"
+		}
+	} else {
+		instructions = "Press ENTER when ready | Q to quit"
+	}
+	r.screen.DrawText((w-len(instructions))/2, h-2, instructions, defaultStyle)
+
+	r.screen.Show()
+}
+
+// RenderCountdown draws the countdown screen before game start
+func (r *Renderer) RenderCountdown(seconds int) {
+	r.screen.Clear()
+	w, h := r.screen.Size()
+
+	// Large countdown number
+	countStyle := tcell.StyleDefault.Bold(true).Foreground(tcell.ColorYellow)
+	countStr := fmt.Sprintf("%d", seconds)
+	r.screen.DrawText(w/2, h/2, countStr, countStyle)
+
+	// Message
+	msgStyle := tcell.StyleDefault
+	msg := "Get Ready!"
+	r.screen.DrawText((w-len(msg))/2, h/2+2, msg, msgStyle)
 
 	r.screen.Show()
 }

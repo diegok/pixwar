@@ -25,6 +25,9 @@ const (
 	MsgStartGame
 	MsgGameOver
 	MsgPlayerEliminated
+	MsgRematchReady   // Client signals ready for rematch
+	MsgRematchState   // Server broadcasts rematch waiting state
+	MsgCountdown      // Server broadcasts countdown before game start
 )
 
 // Message is the envelope for all network communication
@@ -127,6 +130,27 @@ type PlayerRanking struct {
 	Name         string
 	Score        int
 	SurvivalTime int // seconds
+	Color        int // player color for display
+}
+
+// RematchState broadcast while waiting for rematch
+type RematchState struct {
+	Players     []RematchPlayer
+	IsHost      bool
+	AllReady    bool
+}
+
+// RematchPlayer in rematch waiting room
+type RematchPlayer struct {
+	ID    int
+	Name  string
+	Color int
+	Ready bool
+}
+
+// Countdown broadcast before game starts
+type Countdown struct {
+	Seconds int // seconds remaining (3, 2, 1, 0=start)
 }
 
 func init() {
@@ -142,4 +166,7 @@ func init() {
 	gob.Register(PowerupState{})
 	gob.Register(LobbyPlayer{})
 	gob.Register(PlayerRanking{})
+	gob.Register(RematchState{})
+	gob.Register(RematchPlayer{})
+	gob.Register(Countdown{})
 }

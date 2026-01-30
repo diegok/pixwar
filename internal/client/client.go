@@ -11,20 +11,22 @@ import (
 
 // Client represents a connection to the game server
 type Client struct {
-	Name       string
-	Width      int
-	Height     int
-	PlayerID   int
-	conn       net.Conn
-	codec      *protocol.Codec
-	mu         sync.Mutex
-	connected  bool
-	GameState  chan protocol.GameState
-	LobbyState chan protocol.LobbyState
-	GameOver   chan protocol.GameOverState
-	GameStart  chan struct{}
-	Error      chan error
-	done       chan struct{}
+	Name         string
+	Width        int
+	Height       int
+	PlayerID     int
+	conn         net.Conn
+	codec        *protocol.Codec
+	mu           sync.Mutex
+	connected    bool
+	GameState    chan protocol.GameState
+	LobbyState   chan protocol.LobbyState
+	GameOver     chan protocol.GameOverState
+	RematchState chan protocol.RematchState
+	Countdown    chan protocol.Countdown
+	GameStart    chan struct{}
+	Error        chan error
+	done         chan struct{}
 }
 
 const (
@@ -35,16 +37,18 @@ const (
 // NewClient creates a new client with the given name and terminal dimensions
 func NewClient(name string, width, height int) *Client {
 	return &Client{
-		Name:       name,
-		Width:      width,
-		Height:     height,
-		PlayerID:   -1,
-		GameState:  make(chan protocol.GameState, channelBufferSize),
-		LobbyState: make(chan protocol.LobbyState, channelBufferSize),
-		GameOver:   make(chan protocol.GameOverState, channelBufferSize),
-		GameStart:  make(chan struct{}, 1),
-		Error:      make(chan error, channelBufferSize),
-		done:       make(chan struct{}),
+		Name:         name,
+		Width:        width,
+		Height:       height,
+		PlayerID:     -1,
+		GameState:    make(chan protocol.GameState, channelBufferSize),
+		LobbyState:   make(chan protocol.LobbyState, channelBufferSize),
+		GameOver:     make(chan protocol.GameOverState, channelBufferSize),
+		RematchState: make(chan protocol.RematchState, channelBufferSize),
+		Countdown:    make(chan protocol.Countdown, channelBufferSize),
+		GameStart:    make(chan struct{}, 1),
+		Error:        make(chan error, channelBufferSize),
+		done:         make(chan struct{}),
 	}
 }
 
@@ -134,6 +138,23 @@ func (c *Client) SendInput(dir protocol.Direction) error {
 		Payload: protocol.PlayerInput{
 			Direction: dir,
 		},
+	}
+
+	return c.codec.Encode(msg)
+}
+
+// SendRematchReady signals the server that this client is ready for rematch
+func (c *Client) SendRematchReady() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.connected {
+		return fmt.Errorf("not connected")
+	}
+
+	msg := &protocol.Message{
+		Type:    protocol.MsgRematchReady,
+		Payload: nil,
 	}
 
 	return c.codec.Encode(msg)
@@ -244,6 +265,40 @@ func (c *Client) dispatchMessage(msg *protocol.Message) {
 		select {
 		case c.GameStart <- struct{}{}:
 		default:
+		}
+
+	case protocol.MsgRematchState:
+		if state, ok := msg.Payload.(protocol.RematchState); ok {
+			select {
+			case c.RematchState <- state:
+			default:
+				// Channel full, drop oldest and add new
+				select {
+				case <-c.RematchState:
+				default:
+				}
+				select {
+				case c.RematchState <- state:
+				default:
+				}
+			}
+		}
+
+	case protocol.MsgCountdown:
+		if countdown, ok := msg.Payload.(protocol.Countdown); ok {
+			select {
+			case c.Countdown <- countdown:
+			default:
+				// Channel full, drop oldest and add new
+				select {
+				case <-c.Countdown:
+				default:
+				}
+				select {
+				case c.Countdown <- countdown:
+				default:
+				}
+			}
 		}
 	}
 }

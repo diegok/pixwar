@@ -19,17 +19,19 @@ const (
 
 // Server manages the game and client connections
 type Server struct {
-	cfg       *config.Config
-	listener  net.Listener
-	mu        sync.RWMutex
-	clients   map[int]*Client
-	nextID    int
-	gameState *game.GameState
-	inLobby   bool
-	minWidth  int
-	minHeight int
-	done      chan struct{}
-	started   bool
+	cfg          *config.Config
+	listener     net.Listener
+	mu           sync.RWMutex
+	clients      map[int]*Client
+	nextID       int
+	gameState    *game.GameState
+	inLobby      bool
+	inRematch    bool              // waiting for rematch
+	rematchReady map[int]bool      // clients ready for rematch
+	minWidth     int
+	minHeight    int
+	done         chan struct{}
+	started      bool
 }
 
 // NewServer creates a new server on the specified port
@@ -45,13 +47,15 @@ func NewServer(port int) *Server {
 // NewServerWithConfig creates a new server with the specified configuration
 func NewServerWithConfig(cfg *config.Config) *Server {
 	return &Server{
-		cfg:       cfg,
-		clients:   make(map[int]*Client),
-		nextID:    1,
-		inLobby:   true,
-		minWidth:  MinTermWidth,
-		minHeight: MinTermHeight,
-		done:      make(chan struct{}),
+		cfg:          cfg,
+		clients:      make(map[int]*Client),
+		nextID:       1,
+		inLobby:      true,
+		inRematch:    false,
+		rematchReady: make(map[int]bool),
+		minWidth:     MinTermWidth,
+		minHeight:    MinTermHeight,
+		done:         make(chan struct{}),
 	}
 }
 
@@ -107,15 +111,87 @@ func (s *Server) GetServerAddresses() []string {
 	return addresses
 }
 
-// ResetForRematch resets the server state for a new game
+// ResetForRematch enters rematch waiting state
 func (s *Server) ResetForRematch() {
 	s.mu.Lock()
 	s.gameState = nil
+	s.inLobby = false
+	s.inRematch = true
+	s.rematchReady = make(map[int]bool)
+	s.mu.Unlock()
+
+	// Broadcast rematch state to all clients
+	s.BroadcastRematchState()
+}
+
+// SetClientRematchReady marks a client as ready for rematch
+func (s *Server) SetClientRematchReady(clientID int) {
+	s.mu.Lock()
+	s.rematchReady[clientID] = true
+	s.mu.Unlock()
+	s.BroadcastRematchState()
+}
+
+// BroadcastRematchState sends the current rematch waiting state to all clients
+func (s *Server) BroadcastRematchState() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if !s.inRematch {
+		return
+	}
+
+	players := make([]protocol.RematchPlayer, 0, len(s.clients))
+	allReady := true
+	for _, client := range s.clients {
+		if client.Name != "" {
+			ready := s.rematchReady[client.ID]
+			if !ready {
+				allReady = false
+			}
+			players = append(players, protocol.RematchPlayer{
+				ID:    client.ID,
+				Name:  client.Name,
+				Color: (client.ID - 1) % 8,
+				Ready: ready,
+			})
+		}
+	}
+
+	for _, client := range s.clients {
+		isHost := client.ID == 1
+		rematchState := protocol.RematchState{
+			Players:  players,
+			IsHost:   isHost,
+			AllReady: allReady,
+		}
+		msg := &protocol.Message{
+			Type:    protocol.MsgRematchState,
+			Payload: rematchState,
+		}
+		client.Send(msg)
+	}
+}
+
+// StartGameWithCountdown broadcasts countdown then starts game
+func (s *Server) StartGameWithCountdown() {
+	// Broadcast countdown 3, 2, 1
+	for i := 3; i >= 1; i-- {
+		msg := &protocol.Message{
+			Type:    protocol.MsgCountdown,
+			Payload: protocol.Countdown{Seconds: i},
+		}
+		s.broadcast(msg)
+		time.Sleep(time.Second)
+	}
+
+	// Reset rematch state and start game
+	s.mu.Lock()
+	s.inRematch = false
 	s.inLobby = true
 	s.mu.Unlock()
 
-	// Broadcast lobby state to all clients
-	s.BroadcastLobbyState()
+	s.StartGame()
 }
 
 // Stop gracefully shuts down the server
@@ -266,13 +342,20 @@ func (s *Server) handleConnection(conn net.Conn) {
 func (s *Server) handleMessage(client *Client, msg *protocol.Message) {
 	switch msg.Type {
 	case protocol.MsgPlayerInput:
-		if !s.inLobby && s.gameState != nil {
+		if !s.inLobby && !s.inRematch && s.gameState != nil {
 			input, ok := msg.Payload.(protocol.PlayerInput)
 			if ok {
 				s.mu.Lock()
 				s.gameState.ProcessInput(client.PlayerID, input.Direction)
 				s.mu.Unlock()
 			}
+		}
+	case protocol.MsgRematchReady:
+		if s.inRematch {
+			s.mu.Lock()
+			s.rematchReady[client.ID] = true
+			s.mu.Unlock()
+			s.BroadcastRematchState()
 		}
 	}
 }
@@ -423,7 +506,7 @@ func (s *Server) broadcastGameOver() {
 		return
 	}
 
-	// Build rankings with survival time
+	// Build rankings with survival time and color
 	rankings := make([]protocol.PlayerRanking, len(s.gameState.Players))
 	for i, p := range s.gameState.Players {
 		// Convert survival ticks to seconds (20 ticks per second)
@@ -433,6 +516,7 @@ func (s *Server) broadcastGameOver() {
 			Name:         p.Name,
 			Score:        p.Score,
 			SurvivalTime: survivalSec,
+			Color:        p.Color,
 		}
 	}
 

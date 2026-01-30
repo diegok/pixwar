@@ -25,17 +25,21 @@ type App struct {
 	server   *server.Server
 
 	// State
-	inLobby     bool
-	inGame      bool
-	gameOver    bool
-	spectating  bool
-	lobbyState  protocol.LobbyState
-	gameState   protocol.GameState
-	overState   protocol.GameOverState
-	myRank      int
-	myScore     int
-	watchingID  int
-	deathReason string
+	inLobby        bool
+	inGame         bool
+	gameOver       bool
+	inRematch      bool
+	inCountdown    bool
+	spectating     bool
+	lobbyState     protocol.LobbyState
+	gameState      protocol.GameState
+	overState      protocol.GameOverState
+	rematchState   protocol.RematchState
+	countdownValue int
+	myRank         int
+	myScore        int
+	watchingID     int
+	deathReason    string
 
 	// Control channels
 	quit    chan struct{}
@@ -193,6 +197,19 @@ func (a *App) mainLoop() error {
 			a.findMyRank()
 			a.render()
 
+		case state := <-a.client.RematchState:
+			a.rematchState = state
+			a.inRematch = true
+			a.gameOver = false
+			a.inCountdown = false
+			a.render()
+
+		case countdown := <-a.client.Countdown:
+			a.countdownValue = countdown.Seconds
+			a.inCountdown = true
+			a.inRematch = false
+			a.render()
+
 		case err := <-a.client.Error:
 			a.renderer.RenderError(fmt.Sprintf("Connection error: %v", err))
 			a.screen.PollEvent()
@@ -235,11 +252,27 @@ func (a *App) handleEvent(ev tcell.Event) bool {
 				}
 			}
 		} else if a.gameOver {
-			// Game over: Enter to play again (host only)
-			if ui.IsStartKey(e.Key()) && a.server != nil {
-				// Reset state and go back to lobby
-				a.resetForRematch()
-				a.server.ResetForRematch()
+			// Game over: Enter to signal ready for rematch
+			if ui.IsStartKey(e.Key()) {
+				if a.server != nil {
+					// Host: enter rematch waiting state
+					a.server.ResetForRematch()
+					a.server.SetClientRematchReady(a.client.PlayerID)
+				} else {
+					// Non-host: send ready signal
+					a.client.SendRematchReady()
+				}
+			}
+		} else if a.inRematch {
+			// Rematch waiting: Enter to signal ready or start (host)
+			if ui.IsStartKey(e.Key()) {
+				if a.server != nil && a.rematchState.AllReady {
+					// Host can start when all ready
+					go a.server.StartGameWithCountdown()
+				} else if !a.rematchState.IsHost {
+					// Non-host signals ready
+					a.client.SendRematchReady()
+				}
 			}
 		}
 
@@ -329,7 +362,11 @@ func (a *App) findMyRank() {
 
 // render draws the current state
 func (a *App) render() {
-	if a.inLobby {
+	if a.inCountdown {
+		a.renderer.RenderCountdown(a.countdownValue)
+	} else if a.inRematch {
+		a.renderer.RenderRematch(a.rematchState)
+	} else if a.inLobby {
 		a.renderer.RenderLobby(a.lobbyState)
 	} else if a.gameOver {
 		a.renderer.RenderGameOver(a.overState)
@@ -344,14 +381,17 @@ func (a *App) render() {
 
 // resetForRematch resets the app state for a new game
 func (a *App) resetForRematch() {
-	a.inLobby = true
+	a.inLobby = false
 	a.inGame = false
 	a.gameOver = false
+	a.inRematch = true
+	a.inCountdown = false
 	a.spectating = false
 	a.myRank = 0
 	a.myScore = 0
 	a.watchingID = 0
 	a.deathReason = ""
+	a.countdownValue = 0
 }
 
 // cleanup shuts down resources
