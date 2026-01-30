@@ -356,6 +356,13 @@ func (gs *GameState) handlePlayerMovement(p *Player, prevX, prevY int) {
 				break
 			}
 		}
+		// Don't return - continue to add this position to our trail
+		// The cell is now cleared, so we can claim it
+	}
+
+	// Re-fetch cell state after potential elimination cleared it
+	cell = gs.Board.GetCell(p.X, p.Y)
+	if cell == nil {
 		return
 	}
 
