@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/diegok/pixwar/internal/audio"
 	"github.com/diegok/pixwar/internal/client"
 	"github.com/diegok/pixwar/internal/config"
 	"github.com/diegok/pixwar/internal/protocol"
@@ -44,6 +46,9 @@ type App struct {
 	// Control channels
 	quit    chan struct{}
 	sigChan chan os.Signal
+
+	// Audio state tracking
+	prevTerritoryCount int
 }
 
 // NewApp creates a new application with the given configuration
@@ -63,6 +68,19 @@ func (a *App) Run() error {
 	}
 	a.screen = screen
 	a.renderer = ui.NewRenderer(screen)
+
+	// Initialize audio (gracefully degrades if sounds not available)
+	if a.cfg.SoundEnabled {
+		execPath, _ := os.Executable()
+		assetsPath := filepath.Join(filepath.Dir(execPath), "assets")
+		// Also try relative path for development
+		if _, err := os.Stat(assetsPath); os.IsNotExist(err) {
+			assetsPath = "assets"
+		}
+		audio.Init(assetsPath)
+	} else {
+		audio.SetEnabled(false)
+	}
 
 	// Set up signal handling
 	a.sigChan = make(chan os.Signal, 1)
@@ -182,9 +200,13 @@ func (a *App) mainLoop() error {
 			a.inRematch = false
 			a.inCountdown = false
 			a.spectating = false
+			a.prevTerritoryCount = 0
+			audio.Play(audio.SoundGameStart)
 			a.render()
 
 		case state := <-a.client.GameState:
+			// Check for territory capture (before updating state)
+			a.checkTerritoryCapture(state)
 			a.gameState = state
 			// Check if we're eliminated
 			a.checkElimination()
@@ -197,6 +219,7 @@ func (a *App) mainLoop() error {
 			a.spectating = false
 			// Find our rank
 			a.findMyRank()
+			audio.Play(audio.SoundGameOver)
 			a.render()
 
 		case state := <-a.client.RematchState:
@@ -210,6 +233,7 @@ func (a *App) mainLoop() error {
 			a.countdownValue = countdown.Seconds
 			a.inCountdown = true
 			a.inRematch = false
+			audio.Play(audio.SoundCountdown)
 			a.render()
 
 		case err := <-a.client.Error:
@@ -314,6 +338,25 @@ func (a *App) cycleWatching() {
 	a.watchingID = alivePlayers[nextIdx]
 }
 
+// checkTerritoryCapture checks if we captured territory and plays sound
+func (a *App) checkTerritoryCapture(newState protocol.GameState) {
+	if a.spectating {
+		return
+	}
+
+	myID := a.client.PlayerID
+	for _, p := range newState.Players {
+		if p.ID == myID && p.Alive {
+			territoryCount := len(p.Territory)
+			if territoryCount > a.prevTerritoryCount && a.prevTerritoryCount > 0 {
+				audio.Play(audio.SoundCapture)
+			}
+			a.prevTerritoryCount = territoryCount
+			break
+		}
+	}
+}
+
 // checkElimination checks if we've been eliminated
 func (a *App) checkElimination() {
 	if a.spectating {
@@ -327,6 +370,7 @@ func (a *App) checkElimination() {
 				a.spectating = true
 				a.myScore = p.Score
 				a.deathReason = p.DeathReason
+				audio.Play(audio.SoundDeath)
 
 				// Calculate rank based on alive players
 				aliveCount := 0

@@ -21,6 +21,7 @@ type Config struct {
 	Threshold       int // percentage
 	PowerupsEnabled bool
 	PlayerName      string
+	SoundEnabled    bool
 }
 
 func ParseArgs(args []string) (*Config, error) {
@@ -28,8 +29,10 @@ func ParseArgs(args []string) (*Config, error) {
 		Port:         DefaultPort,
 		GameDuration: DefaultGameDuration,
 		Threshold:    DefaultThreshold,
+		SoundEnabled: true, // enabled by default
 	}
 
+	var noSound bool
 	fs := flag.NewFlagSet("pixwar", flag.ContinueOnError)
 	fs.BoolVar(&cfg.IsServer, "server", false, "Run as server")
 	fs.StringVar(&cfg.ServerAddr, "join", "", "Server address to join")
@@ -38,9 +41,15 @@ func ParseArgs(args []string) (*Config, error) {
 	fs.IntVar(&cfg.Threshold, "threshold", DefaultThreshold, "Territory percentage to end game")
 	fs.BoolVar(&cfg.PowerupsEnabled, "powerups", false, "Enable power-ups")
 	fs.StringVar(&cfg.PlayerName, "name", "", "Player name")
+	fs.BoolVar(&noSound, "no-sound", false, "Disable sound effects")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
+	}
+
+	// Apply noSound flag
+	if noSound {
+		cfg.SoundEnabled = false
 	}
 
 	// Validate that --server and --join are not both specified

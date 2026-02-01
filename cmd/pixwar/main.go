@@ -40,6 +40,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  --time <minutes>    Game duration (default: 5)")
 	fmt.Fprintln(os.Stderr, "  --threshold <pct>   Territory % to win (default: 95)")
 	fmt.Fprintln(os.Stderr, "  --powerups          Enable power-ups")
+	fmt.Fprintln(os.Stderr, "  --no-sound          Disable sound effects")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintln(os.Stderr, "  pixwar --server --name Host")
