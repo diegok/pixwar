@@ -369,8 +369,8 @@ func (s *Server) StartGame() {
 	}
 
 	// Calculate board size based on minimum client terminal size
-	// Leave some room for UI elements
-	boardWidth := s.minWidth - 2
+	// Leave room for UI elements: 2 for borders, 16 for scoreboard (needs 15 chars + 1 gap)
+	boardWidth := s.minWidth - 18
 	boardHeight := s.minHeight - 4
 
 	// Create game state
