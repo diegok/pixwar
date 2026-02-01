@@ -201,13 +201,13 @@ func (r *Renderer) renderBoard(state protocol.GameState, myID int) {
 		var char rune
 
 		if isMe {
-			// Own player: bright white background with player-colored text, distinctive character
-			style = tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(GetPlayerColor(p.Color)).Bold(true)
-			char = '█' // Solid block for own player
+			// Own player: bright yellow background with black text for maximum visibility
+			style = tcell.StyleDefault.Background(tcell.ColorYellow).Foreground(tcell.ColorBlack).Bold(true)
+			char = 'X' // Simple ASCII character
 		} else {
-			// Other players: colored background with white foreground
-			style = GetPlayerBgStyle(p.Color).Foreground(tcell.ColorWhite).Bold(true)
-			char = '▓' // Slightly different block for others
+			// Other players: white background with black foreground for visibility
+			style = tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack).Bold(true)
+			char = 'O' // Simple ASCII character
 		}
 
 		if p.Protected {

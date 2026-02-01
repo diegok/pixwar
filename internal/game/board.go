@@ -153,11 +153,11 @@ func (b *Board) CaptureTerritory(playerID int, trail []Point) int {
 	}
 
 	// Mark existing player territory as boundary so trails that return
-	// to territory form proper closed regions for capture
+	// to territory properly enclose areas for capture
 	for y := 0; y < b.Height; y++ {
 		for x := 0; x < b.Width; x++ {
 			cell := b.GetCell(x, y)
-			if cell.Owner == playerID && !trailSet[Point{x, y}] {
+			if cell != nil && cell.Owner == playerID && !cell.IsTrail {
 				visited[y][x] = true
 			}
 		}
@@ -176,25 +176,30 @@ func (b *Board) CaptureTerritory(playerID int, trail []Point) int {
 		}
 	}
 
-	// 4. Capture based on Qix rules
+	// 4. Capture territory - Qix rules: capture the smallest enclosed region
 	captured := len(trail)
 
-	// If only 0 or 1 region, the trail didn't divide anything - just keep the trail as territory
-	if len(regions) <= 1 {
+	if len(regions) == 0 {
 		return captured
 	}
 
-	// Multiple regions - capture the smallest one (Qix rule)
+	// Find the smallest region
 	smallestRegion := regions[0]
 	for _, region := range regions[1:] {
 		if len(region) < len(smallestRegion) {
 			smallestRegion = region
 		}
 	}
-	for _, pt := range smallestRegion {
-		b.SetTerritory(pt.X, pt.Y, playerID)
+
+	// Only capture if the smallest region is less than half the board
+	// This prevents capturing the "wrong" side when trail divides the board
+	totalInterior := (b.Width - 2) * (b.Height - 2)
+	if len(smallestRegion) < totalInterior/2 {
+		for _, pt := range smallestRegion {
+			b.SetTerritory(pt.X, pt.Y, playerID)
+		}
+		captured += len(smallestRegion)
 	}
-	captured += len(smallestRegion)
 
 	return captured
 }
